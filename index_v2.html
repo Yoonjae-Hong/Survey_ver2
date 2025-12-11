@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Custom Floorplan Tool</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 0; background: #f5f5f7; color: #222; }
+    .app-container { display: flex; flex-direction: column; height: 100vh; }
+    .header { padding: 12px 20px; background: #ffffff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: baseline; }
+    .header-title { font-size: 18px; font-weight: 600; }
+    .main { flex: 1; display: grid; grid-template-columns: 260px 1fr; gap: 12px; padding: 12px; }
+    .panel { background: #ffffff; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; }
+    .canvas-wrapper { display: flex; flex-direction: column; gap: 8px; }
+    .canvas { position: relative; flex: 1; min-height: 360px; border: 1px solid #ccc;
+      background: linear-gradient(#e0e0e0 1px, transparent 1px),
+                  linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+      background-size: 20px 20px; }
+    .canvas-shape { position: absolute; border:1px solid rgba(0,0,0,0.3); 
+      background: rgba(59,130,246,0.25); display:flex; justify-content:center; align-items:center; 
+      font-size:11px; cursor:move; user-select:none; }
+    .canvas-shape.selected { box-shadow:0 0 0 2px #1d4ed8; }
+    .btn { padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; border:1px solid #ccc; background:#fff; }
+    .btn-primary { background:#2563eb; color:white; border-color:#2563eb; }
+    textarea { width:100%; height:100px; padding:6px; font-size:11px; background:#fafafa; border-radius:8px; border:1px solid #ddd; }
+  </style>
+</head>
+
+<body>
+<div class="app-container">
+  <header class="header">
+    <div class="header-title">Floorplan Arrangement Tool (Custom Mode)</div>
+  </header>
+
+  <main class="main">
+
+    <!-- LEFT PANEL (Custom Creator Only) -->
+    <section class="panel">
+      <h3 style="margin:4px 0 10px 0; font-size:14px;">Create a Custom Room</h3>
+
+      <label>Room Type</label>
+      <select id="customRoomType" style="padding:4px; margin-bottom:8px;">
+        <option>Living room</option>
+        <option>Kitchen</option>
+        <option>Bedroom</option>
+        <option>Bathroom</option>
+        <option>Storage</option>
+        <option>Balcony</option>
+      </select>
+
+      <label>Width (grid units)</label>
+      <input id="customWidth" type="number" min="1" value="5" style="padding:4px; margin-bottom:8px;">
+
+      <label>Height (grid units)</label>
+      <input id="customHeight" type="number" min="1" value="3" style="padding:4px; margin-bottom:12px;">
+
+      <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
+
+      <hr style="margin:16px 0;">
+
+      <button id="clearCanvasBtn" class="btn">Clear Canvas</button>
+      <button id="exportJsonBtn" class="btn btn-primary" style="margin-top:8px;">Save JSON + PNG</button>
+    </section>
+
+    <!-- RIGHT PANEL (Canvas + JSON) -->
+    <section class="panel canvas-wrapper">
+      <div class="canvas" id="canvas"></div>
+      <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
+    </section>
+
+  </main>
+</div>
+
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+const GRID_SIZE = 20;
+const ROOM_COLORS = {
+  "Living room":"rgba(59,130,246,0.25)",
+  "Kitchen":"rgba(34,197,94,0.25)",
+  "Bedroom":"rgba(139,92,246,0.25)",
+  "Bathroom":"rgba(239,68,68,0.25)",
+  "Storage":"rgba(250,204,21,0.25)",
+  "Balcony":"rgba(249,115,22,0.25)"
+};
+
+const canvas = document.getElementById("canvas");
+const addBtn = document.getElementById("addCustomRoomBtn");
+const clearBtn = document.getElementById("clearCanvasBtn");
+const saveBtn = document.getElementById("exportJsonBtn");
+const output = document.getElementById("layoutOutput");
+
+let shapes = [];
+let shapeIdCounter = 1;
+let selectedId = null;
+
+/* ---------------- CREATE CUSTOM ROOM ---------------- */
+addBtn.addEventListener("click", () => {
+  const type = document.getElementById("customRoomType").value;
+  const wUnits = parseInt(document.getElementById("customWidth").value);
+  const hUnits = parseInt(document.getElementById("customHeight").value);
+
+  if (wUnits <= 0 || hUnits <= 0) { alert("Size must be positive."); return; }
+
+  const w = wUnits * GRID_SIZE;
+  const h = hUnits * GRID_SIZE;
+
+  // compute center position
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
+  const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
+
+  const label = `${type} – Custom (${wUnits}×${hUnits} units)`;
+
+  addShape({ roomType:type, label, x, y, width:w, height:h });
+});
+
+function addShape({ roomType, label, x, y, width, height }) {
+  const id = "shape_" + shapeIdCounter++;
+  const div = document.createElement("div");
+
+  div.className = "canvas-shape";
+  div.style.background = ROOM_COLORS[roomType];
+  div.style.left = x+"px";
+  div.style.top = y+"px";
+  div.style.width = width+"px";
+  div.style.height = height+"px";
+  div.dataset.id = id;
+  div.innerHTML = `<div>${label}</div>`;
+
+  canvas.appendChild(div);
+
+  shapes.push({ id, roomType, label, x, y, width, height });
+  attachMove(div);
+  updateJSON();
+}
+
+/* ---------------- SHAPE MOVEMENT ---------------- */
+function attachMove(el) {
+  el.addEventListener("mousedown", (e) => {
+    selectedId = el.dataset.id;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialLeft = parseInt(el.style.left);
+    const initialTop = parseInt(el.style.top);
+
+    function move(ev) {
+      let nx = initialLeft + (ev.clientX - startX);
+      let ny = initialTop + (ev.clientY - startY);
+      nx = Math.round(nx / GRID_SIZE)*GRID_SIZE;
+      ny = Math.round(ny / GRID_SIZE)*GRID_SIZE;
+
+      el.style.left = nx+"px";
+      el.style.top = ny+"px";
+
+      let s = shapes.find(o => o.id === selectedId);
+      s.x = nx; s.y = ny;
+      updateJSON();
+    }
+
+    function stop() {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+    }
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  });
+}
+
+/* ---------------- DELETE KEY ---------------- */
+document.addEventListener("keydown", (e) => {
+  if ((e.key==="Delete" || e.key==="Backspace") && selectedId) {
+    const el = canvas.querySelector(`[data-id="${selectedId}"]`);
+    el?.remove();
+    shapes = shapes.filter(s => s.id !== selectedId);
+    selectedId = null;
+    updateJSON();
+  }
+});
+
+/* ---------------- JSON ---------------- */
+function updateJSON() {
+  output.value = JSON.stringify(shapes, null, 2);
+}
+
+/* ---------------- CLEAR ---------------- */
+clearBtn.addEventListener("click", () => {
+  if (!confirm("Clear all rooms?")) return;
+  shapes = [];
+  canvas.innerHTML = "";
+  updateJSON();
+});
+
+/* ---------------- SAVE JSON + PNG ---------------- */
+saveBtn.addEventListener("click", async () => {
+
+  // JSON
+  const blob = new Blob([output.value], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "layout.json"; a.click();
+  URL.revokeObjectURL(url);
+
+  // PNG
+  const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
+  screenshot.toBlob((imgBlob)=>{
+    const imgUrl = URL.createObjectURL(imgBlob);
+    const a2 = document.createElement("a");
+    a2.href = imgUrl; a2.download = "layout.png"; a2.click();
+    URL.revokeObjectURL(imgUrl);
+  });
+
+  alert("Saved JSON + PNG");
+});
+</script>
+</body>
+</html>
