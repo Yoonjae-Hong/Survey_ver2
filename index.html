@@ -9,12 +9,11 @@
     .app-container { display: flex; flex-direction: column; height: 100vh; }
     .header { padding: 12px 20px; background: #ffffff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: baseline; }
     .header-title { font-size: 18px; font-weight: 600; }
+
     .main { flex: 1; display: grid; grid-template-columns: 260px 1fr; gap: 12px; padding: 12px; }
     .panel { background: #ffffff; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; }
 
-    .canvas-wrapper { display: flex; flex-direction: column; gap: 8px; }
-
-    /* Instruction Bar */
+    /* Instruction bar */
     .instruction-bar {
       font-size: 12px;
       color: #555;
@@ -26,6 +25,8 @@
     }
 
     /* Canvas */
+    .canvas-wrapper { display: flex; flex-direction: column; gap: 8px; }
+
     .canvas {
       position: relative;
       flex: 1;
@@ -37,20 +38,31 @@
       overflow: hidden;
     }
 
-    /* Compass (north arrow) */
+    /* FULL Compass (N/E/S/W) */
     .compass {
       position: absolute;
-      top: 6px;
-      right: 6px;
-      background: rgba(255,255,255,0.8);
-      padding: 4px 6px;
-      border-radius: 6px;
-      border: 1px solid #aaa;
-      font-size: 12px;
-      font-weight: 600;
-      z-index: 10;
+      top: 10px;
+      right: 10px;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      border: 2px solid #555;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
       user-select: none;
+      z-index: 20;
     }
+
+    .compass .north { position: absolute; top: 4px; font-size: 13px; font-weight: 700; }
+    .compass .east { position: absolute; right: 4px; font-size: 11px; }
+    .compass .south { position: absolute; bottom: 4px; font-size: 11px; }
+    .compass .west { position: absolute; left: 4px; font-size: 11px; }
 
     .canvas-shape {
       position: absolute;
@@ -61,7 +73,7 @@
       font-size:11px;
       cursor:move;
       user-select:none;
-      padding:2px;
+      padding:3px;
       text-align:center;
     }
 
@@ -77,7 +89,7 @@
 <body>
 <div class="app-container">
   <header class="header">
-    <div class="header-title">Floorplan Arrangement Tool (Custom Mode)</div>
+    <div class="header-title">Floorplan Design Tool</div>
   </header>
 
   <main class="main">
@@ -97,7 +109,7 @@
         <option value="Others">Others</option>
       </select>
 
-      <!-- Custom Label (for Others) -->
+      <!-- Custom label (for Others) -->
       <div id="labelContainer" style="display:none; margin-bottom:8px;">
         <label>Custom Label</label>
         <input id="customLabelInput" type="text" placeholder="Enter custom name"
@@ -121,17 +133,23 @@
     <!-- RIGHT PANEL -->
     <section class="panel canvas-wrapper">
 
-      <!-- Instruction Bar -->
       <div class="instruction-bar">
-        Select a room type and enter its size. Drag the created unit onto the canvas to build your floor plan.
-        Use Delete to remove a unit, and Save JSON + PNG to download your layout.
+        Instruction: Select a room type and enter its size. Drag units on the canvas to design your floor plan.
+        Use Delete to remove. Save JSON + PNG to download the files.
       </div>
 
       <div class="canvas" id="canvas">
-        <div class="compass">N ↑</div>  <!-- Compass -->
+        <!-- COMPASS -->
+        <div class="compass">
+          <div class="north">N</div>
+          <div class="east">E</div>
+          <div class="south">S</div>
+          <div class="west">W</div>
+        </div>
       </div>
 
       <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
+
     </section>
 
   </main>
@@ -140,9 +158,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-/* ---------------- CONSTANTS ---------------- */
-const GRID_SIZE = 20;       // pixel size for display
-const EXPORT_UNIT = 100;    // JSON output scaling: 1 grid = 100
+/* -------- CONSTANTS -------- */
+const GRID_SIZE = 20;
+const EXPORT_UNIT = 100; // JSON scaling
 
 /* Room Colors */
 const ROOM_COLORS = {
@@ -156,6 +174,8 @@ const ROOM_COLORS = {
 };
 
 const canvas = document.getElementById("canvas");
+const typeSelect = document.getElementById("customRoomType");
+const labelContainer = document.getElementById("labelContainer");
 const addBtn = document.getElementById("addCustomRoomBtn");
 const clearBtn = document.getElementById("clearCanvasBtn");
 const saveBtn = document.getElementById("exportJsonBtn");
@@ -165,25 +185,22 @@ let shapes = [];
 let shapeIdCounter = 1;
 let selectedId = null;
 
-/* ---------------- Show custom label when 'Others' selected ---------------- */
-const typeSelect = document.getElementById("customRoomType");
-const labelContainer = document.getElementById("labelContainer");
-
+/* -------- Show custom label for Others -------- */
 typeSelect.addEventListener("change", () => {
   labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
 });
 
-/* ---------------- CREATE CUSTOM ROOM ---------------- */
+/* -------- CREATE ROOM -------- */
 addBtn.addEventListener("click", () => {
   const type = typeSelect.value;
   const wUnits = parseInt(document.getElementById("customWidth").value);
   const hUnits = parseInt(document.getElementById("customHeight").value);
-
   if (wUnits <= 0 || hUnits <= 0) { alert("Size must be positive."); return; }
 
   const w = wUnits * GRID_SIZE;
   const h = hUnits * GRID_SIZE;
 
+  // center on canvas
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
   const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
@@ -191,7 +208,7 @@ addBtn.addEventListener("click", () => {
   let label;
   if (type === "Others") {
     const customLabel = document.getElementById("customLabelInput").value.trim();
-    if (!customLabel) { alert("Please enter a custom label."); return; }
+    if (!customLabel) { alert("Enter a custom label."); return; }
     label = `${customLabel} (${wUnits}×${hUnits} units)`;
   } else {
     label = `${type} (${wUnits}×${hUnits} units)`;
@@ -200,7 +217,7 @@ addBtn.addEventListener("click", () => {
   addShape({ roomType:type, label, x, y, width:w, height:h });
 });
 
-/* ---------------- Add Shape ---------------- */
+/* -------- ADD SHAPE -------- */
 function addShape({ roomType, label, x, y, width, height }) {
   const id = "shape_" + shapeIdCounter++;
   const div = document.createElement("div");
@@ -212,7 +229,6 @@ function addShape({ roomType, label, x, y, width, height }) {
   div.style.width = width+"px";
   div.style.height = height+"px";
   div.dataset.id = id;
-
   div.innerHTML = `<div>${label}</div>`;
 
   canvas.appendChild(div);
@@ -222,10 +238,11 @@ function addShape({ roomType, label, x, y, width, height }) {
   updateJSON();
 }
 
-/* ---------------- DRAG MOVE ---------------- */
+/* -------- DRAG MOVE -------- */
 function attachMove(el) {
   el.addEventListener("mousedown", (e) => {
     selectedId = el.dataset.id;
+
     const startX = e.clientX;
     const startY = e.clientY;
     const initialLeft = parseInt(el.style.left);
@@ -255,18 +272,19 @@ function attachMove(el) {
   });
 }
 
-/* ---------------- DELETE ---------------- */
+/* -------- DELETE -------- */
 document.addEventListener("keydown", (e) => {
   if ((e.key==="Delete" || e.key==="Backspace") && selectedId) {
     const el = canvas.querySelector(`[data-id="${selectedId}"]`);
     el?.remove();
+
     shapes = shapes.filter(s => s.id !== selectedId);
     selectedId = null;
     updateJSON();
   }
 });
 
-/* ---------------- JSON EXPORT ---------------- */
+/* -------- JSON EXPORT -------- */
 function updateJSON() {
   const converted = shapes.map(s => ({
     id: s.id,
@@ -281,24 +299,36 @@ function updateJSON() {
   output.value = JSON.stringify(converted, null, 2);
 }
 
-/* ---------------- CLEAR ---------------- */
+/* -------- CLEAR CANVAS -------- */
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all rooms?")) return;
+
   shapes = [];
-  canvas.innerHTML = `<div class="compass">N ↑</div>`;
+
+  // Compass must be restored, not removed
+  canvas.innerHTML = `
+    <div class="compass">
+      <div class="north">N</div>
+      <div class="east">E</div>
+      <div class="south">S</div>
+      <div class="west">W</div>
+    </div>
+  `;
+
   updateJSON();
 });
 
-/* ---------------- SAVE JSON + PNG ---------------- */
+/* -------- SAVE JSON + PNG -------- */
 saveBtn.addEventListener("click", async () => {
-  // JSON
+
+  // JSON export
   const blob = new Blob([output.value], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = "layout.json"; a.click();
   URL.revokeObjectURL(url);
 
-  // PNG
+  // PNG export
   const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
   screenshot.toBlob((imgBlob)=>{
     const imgUrl = URL.createObjectURL(imgBlob);
@@ -309,8 +339,7 @@ saveBtn.addEventListener("click", async () => {
 
   alert("Saved JSON + PNG");
 });
+
 </script>
 </body>
 </html>
-
-
