@@ -34,7 +34,7 @@
 
   <main class="main">
 
-    <!-- LEFT PANEL (Custom Creator Only) -->
+    <!-- LEFT PANEL -->
     <section class="panel">
       <h3 style="margin:4px 0 10px 0; font-size:14px;">Create a Custom Room</h3>
 
@@ -46,7 +46,15 @@
         <option>Bathroom</option>
         <option>Storage</option>
         <option>Balcony</option>
+        <option value="Others">Others</option>
       </select>
+
+      <!-- Custom Label (shown only when 'Others' is selected) -->
+      <div id="labelContainer" style="display:none; margin-bottom:8px;">
+        <label>Custom Label</label>
+        <input id="customLabelInput" type="text" placeholder="Enter custom name"
+               style="padding:4px; margin-top:4px; width:100%;">
+      </div>
 
       <label>Width (grid units)</label>
       <input id="customWidth" type="number" min="1" value="5" style="padding:4px; margin-bottom:8px;">
@@ -62,7 +70,7 @@
       <button id="exportJsonBtn" class="btn btn-primary" style="margin-top:8px;">Save JSON + PNG</button>
     </section>
 
-    <!-- RIGHT PANEL (Canvas + JSON) -->
+    <!-- RIGHT PANEL -->
     <section class="panel canvas-wrapper">
       <div class="canvas" id="canvas"></div>
       <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
@@ -76,13 +84,15 @@
 
 <script>
 const GRID_SIZE = 20;
+
 const ROOM_COLORS = {
   "Living room":"rgba(59,130,246,0.25)",
   "Kitchen":"rgba(34,197,94,0.25)",
   "Bedroom":"rgba(139,92,246,0.25)",
   "Bathroom":"rgba(239,68,68,0.25)",
   "Storage":"rgba(250,204,21,0.25)",
-  "Balcony":"rgba(249,115,22,0.25)"
+  "Balcony":"rgba(249,115,22,0.25)",
+  "Others":"rgba(156,163,175,0.25)"   // gray tone
 };
 
 const canvas = document.getElementById("canvas");
@@ -95,9 +105,21 @@ let shapes = [];
 let shapeIdCounter = 1;
 let selectedId = null;
 
+/* ---------------- Show custom label input when 'Others' selected ---------------- */
+const typeSelect = document.getElementById("customRoomType");
+const labelContainer = document.getElementById("labelContainer");
+
+typeSelect.addEventListener("change", () => {
+  if (typeSelect.value === "Others") {
+    labelContainer.style.display = "block";
+  } else {
+    labelContainer.style.display = "none";
+  }
+});
+
 /* ---------------- CREATE CUSTOM ROOM ---------------- */
 addBtn.addEventListener("click", () => {
-  const type = document.getElementById("customRoomType").value;
+  const type = typeSelect.value;
   const wUnits = parseInt(document.getElementById("customWidth").value);
   const hUnits = parseInt(document.getElementById("customHeight").value);
 
@@ -106,12 +128,19 @@ addBtn.addEventListener("click", () => {
   const w = wUnits * GRID_SIZE;
   const h = hUnits * GRID_SIZE;
 
-  // compute center position
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
   const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
 
-  const label = `${type} – Custom (${wUnits}×${hUnits} units)`;
+  let label;
+
+  if (type === "Others") {
+    const customLabel = document.getElementById("customLabelInput").value.trim();
+    if (!customLabel) { alert("Please enter a custom label."); return; }
+    label = `${customLabel} (${wUnits}×${hUnits} units)`;
+  } else {
+    label = `${type} – Custom (${wUnits}×${hUnits} units)`;
+  }
 
   addShape({ roomType:type, label, x, y, width:w, height:h });
 });
@@ -136,7 +165,7 @@ function addShape({ roomType, label, x, y, width, height }) {
   updateJSON();
 }
 
-/* ---------------- SHAPE MOVEMENT ---------------- */
+/* ---------------- DRAG MOVE ---------------- */
 function attachMove(el) {
   el.addEventListener("mousedown", (e) => {
     selectedId = el.dataset.id;
@@ -169,7 +198,7 @@ function attachMove(el) {
   });
 }
 
-/* ---------------- DELETE KEY ---------------- */
+/* ---------------- DELETE ---------------- */
 document.addEventListener("keydown", (e) => {
   if ((e.key==="Delete" || e.key==="Backspace") && selectedId) {
     const el = canvas.querySelector(`[data-id="${selectedId}"]`);
@@ -217,3 +246,4 @@ saveBtn.addEventListener("click", async () => {
 </script>
 </body>
 </html>
+
