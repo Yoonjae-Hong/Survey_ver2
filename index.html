@@ -167,7 +167,7 @@
 
 <script>
 /* ====== GRID & UNIT SETTINGS ====== */
-const GRID_SIZE = 15;      // 정사각형 그리드 px 크기 (전에 20 → 10으로 더 촘촘)
+const GRID_SIZE = 20;      // 정사각형 그리드 px 크기 (전에 20 → 10으로 더 촘촘)
 const CM_PER_UNIT = 60;    // 1 grid = 60cm
 
 const canvas = document.getElementById("canvas");
@@ -196,8 +196,8 @@ function positionPersonIcon() {
   const compassRect = compass.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
 
-  const personWidth = 40;
-  const personHeight = 60;
+  const personWidth = 30;
+  const personHeight = 50;
 
   const left =
     (compassRect.left - canvasRect.left) + (compassRect.width / 2) - (personWidth / 2);
