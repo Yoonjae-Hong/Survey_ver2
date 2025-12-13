@@ -2,70 +2,74 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Custom Floorplan Tool</title>
+  <title>Floorplan Design Tool</title>
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; padding: 0; background: #f5f5f7; color: #222; }
-    .app-container { display: flex; flex-direction: column; height: 100vh; }
-    .header { padding: 12px 20px; background: #ffffff; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: baseline; }
-    .header-title { font-size: 18px; font-weight: 600; }
+    body { margin: 0; padding: 0; background:#f5f5f7; color:#222; }
+    .app-container { display:flex; flex-direction:column; height:100vh; }
+    .header { padding:12px 20px; background:#fff; border-bottom:1px solid #ddd; }
+    .header-title { font-size:18px; font-weight:600; }
 
-    .main { flex: 1; display: grid; grid-template-columns: 260px 1fr; gap: 12px; padding: 12px; }
-    .panel { background: #ffffff; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; }
+    .main { flex:1; display:grid; grid-template-columns:260px 1fr; gap:12px; padding:12px; }
+    .panel { background:#fff; border-radius:14px; padding:12px; box-shadow:0 2px 6px rgba(0,0,0,0.04); display:flex; flex-direction:column; }
 
     /* Instruction bar */
     .instruction-bar {
-      font-size: 12px;
-      color: #555;
-      background: #f0f0f0;
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      margin-bottom: 8px;
+      font-size:12px; color:#555;
+      background:#f0f0f0;
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid #ddd;
+      margin-bottom:8px;
+      line-height:1.4;
     }
 
     /* Canvas */
-    .canvas-wrapper { display: flex; flex-direction: column; gap: 8px; }
-
+    .canvas-wrapper { display:flex; flex-direction:column; gap:8px; }
     .canvas {
-      position: relative;
-      flex: 1;
-      min-height: 360px;
-      border: 1px solid #ccc;
-      background: linear-gradient(#e0e0e0 1px, transparent 1px),
-                  linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-      background-size: 20px 20px;
-      overflow: hidden;
+      position:relative;
+      flex:1;
+      min-height:360px;
+      border:1px solid #ccc;
+      background:
+        linear-gradient(#e0e0e0 1px, transparent 1px),
+        linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+      background-size:20px 20px;
+      overflow:hidden;
     }
 
-    /* FULL Compass (N/E/S/W) */
+    /* Compass */
     .compass {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 70px;
-      height: 70px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.9);
-      border: 2px solid #555;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 13px;
-      font-weight: 700;
-      color: #333;
-      user-select: none;
-      z-index: 20;
+      position:absolute;
+      top:10px; right:10px;
+      width:70px; height:70px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.9);
+      border:2px solid #555;
+      box-shadow:0 2px 4px rgba(0,0,0,0.15);
+      z-index:20;
+    }
+    .compass div { position:absolute; font-weight:700; font-size:13px; color:#333; }
+    .north { top:4px; left:50%; transform:translateX(-50%); }
+    .east { right:4px; top:50%; transform:translateY(-50%); }
+    .south { bottom:4px; left:50%; transform:translateX(-50%); }
+    .west { left:4px; top:50%; transform:translateY(-50%); }
+
+    /* Person icon */
+    .person-icon {
+      position:absolute;
+      width:40px;  /* 2 units */
+      height:60px; /* 3 units */
+      top:90px;    /* Compass height (70px) + margin */
+      right:10px;
+      cursor:move;
+      user-select:none;
+      z-index:15;
     }
 
-    .compass .north { position: absolute; top: 4px; font-size: 13px; font-weight: 700; }
-    .compass .east { position: absolute; right: 4px; font-size: 13px; font-weight: 700;}
-    .compass .south { position: absolute; bottom: 4px; font-size: 13px; font-weight: 700;}
-    .compass .west { position: absolute; left: 4px; font-size: 13px; font-weight: 700;}
-
+    /* Generic shape */
     .canvas-shape {
-      position: absolute;
+      position:absolute;
       border:1px solid rgba(0,0,0,0.3);
       display:flex;
       justify-content:center;
@@ -79,7 +83,7 @@
 
     .canvas-shape.selected { box-shadow:0 0 0 2px #1d4ed8; }
 
-    .btn { padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; border:1px solid #ccc; background:#fff; }
+    .btn { padding:6px 10px; border-radius:6px; font-size:12px; cursor:pointer; border:1px solid #ccc; background:#fff; }
     .btn-primary { background:#2563eb; color:white; border-color:#2563eb; }
 
     textarea { width:100%; height:100px; padding:6px; font-size:11px; background:#fafafa; border-radius:8px; border:1px solid #ddd; }
@@ -109,17 +113,16 @@
         <option value="Others">Others</option>
       </select>
 
-      <!-- Custom label (for Others) -->
       <div id="labelContainer" style="display:none; margin-bottom:8px;">
         <label>Custom Label</label>
         <input id="customLabelInput" type="text" placeholder="Enter custom name"
                style="padding:4px; margin-top:4px; width:100%;">
       </div>
 
-      <label>Width (1 grid unit=60cm)</label>
+      <label>Width (units)</label>
       <input id="customWidth" type="number" min="1" value="5" style="padding:4px; margin-bottom:8px;">
 
-      <label>Height (1 grid unit=60cm)</label>
+      <label>Height (units)</label>
       <input id="customHeight" type="number" min="1" value="3" style="padding:4px; margin-bottom:12px;">
 
       <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
@@ -130,22 +133,31 @@
       <button id="exportJsonBtn" class="btn btn-primary" style="margin-top:8px;">Save JSON + PNG</button>
     </section>
 
+
     <!-- RIGHT PANEL -->
     <section class="panel canvas-wrapper">
 
-      <div class="instruction-bar";font-weight: 700; >
-        Instruction: Select a room type and enter its size. Drag units on the canvas to design your floor plan.
+      <div class="instruction-bar">
+        Instruction: Select a room type and enter its size. Drag rooms on the canvas to design your floor plan.
         Use Delete to remove. Save JSON + PNG to download the files.
       </div>
 
       <div class="canvas" id="canvas">
-        <!-- COMPASS -->
+
+        <!-- Compass -->
         <div class="compass">
           <div class="north">N</div>
           <div class="east">E</div>
           <div class="south">S</div>
           <div class="west">W</div>
         </div>
+
+        <!-- Default Person Icon -->
+        <div id="personIcon" class="person-icon canvas-shape" data-id="person_1">
+          <img src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
+               style="width:100%; height:100%; object-fit:contain;">
+        </div>
+
       </div>
 
       <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
@@ -158,87 +170,90 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-/* -------- CONSTANTS -------- */
+/* === CONSTANTS === */
 const GRID_SIZE = 20;
-const EXPORT_UNIT = 100; // JSON scaling
+const EXPORT_UNIT = 100;
 
-/* Room Colors */
 const ROOM_COLORS = {
-  "Living Room": "rgba(59,130,246,0.25)",
-  "Kitchen": "rgba(34,197,94,0.25)",
-  "Dining Room": "rgba(253,186,116,0.25)",
-  "Master Bedroom": "rgba(139,92,246,0.25)",
-  "Guest Bedroom": "rgba(16,185,129,0.25)",
-  "Bathroom": "rgba(239,68,68,0.25)",
-  "Others": "rgba(156,163,175,0.25)"
+  "Living Room":"rgba(59,130,246,0.25)",
+  "Kitchen":"rgba(34,197,94,0.25)",
+  "Dining Room":"rgba(253,186,116,0.25)",
+  "Master Bedroom":"rgba(139,92,246,0.25)",
+  "Guest Bedroom":"rgba(16,185,129,0.25)",
+  "Bathroom":"rgba(239,68,68,0.25)",
+  "Others":"rgba(156,163,175,0.25)"
 };
 
 const canvas = document.getElementById("canvas");
-const typeSelect = document.getElementById("customRoomType");
-const labelContainer = document.getElementById("labelContainer");
 const addBtn = document.getElementById("addCustomRoomBtn");
 const clearBtn = document.getElementById("clearCanvasBtn");
 const saveBtn = document.getElementById("exportJsonBtn");
+const typeSelect = document.getElementById("customRoomType");
+const labelContainer = document.getElementById("labelContainer");
 const output = document.getElementById("layoutOutput");
 
 let shapes = [];
-let shapeIdCounter = 1;
 let selectedId = null;
+let shapeIdCounter = 1;
 
-/* -------- Show custom label for Others -------- */
+/* === Toggle custom label === */
 typeSelect.addEventListener("change", () => {
   labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
 });
 
-/* -------- CREATE ROOM -------- */
+/* === Add Custom Room === */
 addBtn.addEventListener("click", () => {
   const type = typeSelect.value;
-  const wUnits = parseInt(document.getElementById("customWidth").value);
-  const hUnits = parseInt(document.getElementById("customHeight").value);
-  if (wUnits <= 0 || hUnits <= 0) { alert("Size must be positive."); return; }
+  const wUnits = +document.getElementById("customWidth").value;
+  const hUnits = +document.getElementById("customHeight").value;
+
+  if (wUnits <= 0 || hUnits <= 0) return alert("Size must be positive.");
 
   const w = wUnits * GRID_SIZE;
   const h = hUnits * GRID_SIZE;
 
-  // center on canvas
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
   const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
 
-  let label;
+  let label = type;
   if (type === "Others") {
-    const customLabel = document.getElementById("customLabelInput").value.trim();
-    if (!customLabel) { alert("Enter a custom label."); return; }
-    label = `${customLabel} (${wUnits}×${hUnits} units)`;
-  } else {
-    label = `${type} (${wUnits}×${hUnits} units)`;
+    const custom = document.getElementById("customLabelInput").value.trim();
+    if (!custom) return alert("Enter custom label.");
+    label = custom;
   }
 
-  addShape({ roomType:type, label, x, y, width:w, height:h });
+  addShape({ roomType:type, label:`${label} (${wUnits}×${hUnits})`, x, y, width:w, height:h });
 });
 
-/* -------- ADD SHAPE -------- */
-function addShape({ roomType, label, x, y, width, height }) {
+/* === Add Shape Utility === */
+function addShape({ roomType, label, x, y, width, height, image }) {
   const id = "shape_" + shapeIdCounter++;
-  const div = document.createElement("div");
 
+  const div = document.createElement("div");
   div.className = "canvas-shape";
-  div.style.background = ROOM_COLORS[roomType];
+  div.dataset.id = id;
   div.style.left = x+"px";
   div.style.top = y+"px";
   div.style.width = width+"px";
   div.style.height = height+"px";
-  div.dataset.id = id;
-  div.innerHTML = `<div>${label}</div>`;
+
+  if (image) {
+    div.innerHTML = `<img src="${image}" style="width:100%; height:100%; object-fit:contain;">`;
+  } else {
+    div.style.background = ROOM_COLORS[roomType];
+    div.textContent = label;
+  }
 
   canvas.appendChild(div);
 
-  shapes.push({ id, roomType, label, x, y, width, height });
+  shapes.push({ id, roomType, label, x, y, width, height, image:image||null });
+
   attachMove(div);
   updateJSON();
 }
 
-/* -------- DRAG MOVE -------- */
+/* === Movement Handling === */
 function attachMove(el) {
   el.addEventListener("mousedown", (e) => {
     selectedId = el.dataset.id;
@@ -257,8 +272,9 @@ function attachMove(el) {
       el.style.left = nx+"px";
       el.style.top = ny+"px";
 
-      let s = shapes.find(o => o.id === selectedId);
+      const s = shapes.find(o => o.id === selectedId);
       s.x = nx; s.y = ny;
+
       updateJSON();
     }
 
@@ -272,40 +288,43 @@ function attachMove(el) {
   });
 }
 
-/* -------- DELETE -------- */
+/* === Delete Key (Person cannot be deleted) === */
 document.addEventListener("keydown", (e) => {
-  if ((e.key==="Delete" || e.key==="Backspace") && selectedId) {
+  if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+
+    if (selectedId === "person_1") {
+      alert("The person icon cannot be deleted.");
+      return;
+    }
+
     const el = canvas.querySelector(`[data-id="${selectedId}"]`);
     el?.remove();
 
     shapes = shapes.filter(s => s.id !== selectedId);
     selectedId = null;
+
     updateJSON();
   }
 });
 
-/* -------- JSON EXPORT -------- */
+/* === JSON Export === */
 function updateJSON() {
-  const converted = shapes.map(s => ({
-    id: s.id,
-    roomType: s.roomType,
-    label: s.label,
+  const result = shapes.map(s => ({
+    ...s,
     x: (s.x / GRID_SIZE) * EXPORT_UNIT,
     y: (s.y / GRID_SIZE) * EXPORT_UNIT,
     width: (s.width / GRID_SIZE) * EXPORT_UNIT,
     height: (s.height / GRID_SIZE) * EXPORT_UNIT
   }));
-
-  output.value = JSON.stringify(converted, null, 2);
+  output.value = JSON.stringify(result, null, 2);
 }
 
-/* -------- CLEAR CANVAS -------- */
+/* === Clear Canvas === */
 clearBtn.addEventListener("click", () => {
-  if (!confirm("Clear all rooms?")) return;
+  if (!confirm("Clear all rooms? Person icon will remain.")) return;
 
-  shapes = [];
+  shapes = shapes.filter(s => s.id === "person_1");
 
-  // Compass must be restored, not removed
   canvas.innerHTML = `
     <div class="compass">
       <div class="north">N</div>
@@ -313,24 +332,28 @@ clearBtn.addEventListener("click", () => {
       <div class="south">S</div>
       <div class="west">W</div>
     </div>
+    <div id="personIcon" class="person-icon canvas-shape" data-id="person_1">
+      <img src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
+          style="width:100%; height:100%; object-fit:contain;">
+    </div>
   `;
+
+  const p = document.getElementById("personIcon");
+  attachMove(p);
 
   updateJSON();
 });
 
-/* -------- SAVE JSON + PNG -------- */
+/* === SAVE JSON + PNG === */
 saveBtn.addEventListener("click", async () => {
-
-  // JSON export
   const blob = new Blob([output.value], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = "layout.json"; a.click();
   URL.revokeObjectURL(url);
 
-  // PNG export
   const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
-  screenshot.toBlob((imgBlob)=>{
+  screenshot.toBlob((imgBlob) => {
     const imgUrl = URL.createObjectURL(imgBlob);
     const a2 = document.createElement("a");
     a2.href = imgUrl; a2.download = "layout.png"; a2.click();
@@ -340,6 +363,25 @@ saveBtn.addEventListener("click", async () => {
   alert("Saved JSON + PNG");
 });
 
+/* === Register Person Icon in Shapes === */
+const personEl = document.getElementById("personIcon");
+let px = canvas.offsetWidth - 50;
+personEl.style.left = px + "px";
+
+shapes.push({
+  id: "person_1",
+  roomType: "Person Icon",
+  label: "Person Icon",
+  x: px,
+  y: 90,
+  width: 40,
+  height: 60,
+  image: "https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
+});
+
+attachMove(personEl);
+updateJSON();
 </script>
+
 </body>
 </html>
