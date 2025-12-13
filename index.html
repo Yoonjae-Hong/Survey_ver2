@@ -36,7 +36,7 @@
       background:
         linear-gradient(#e0e0e0 1px, transparent 1px),
         linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-      background-size: 20px 20px; /* 임시, JS에서 다시 세팅됨 */
+      background-size: 10px 10px;  /* 정사각형 그리드, JS에서도 다시 세팅 */
       overflow:hidden;
     }
 
@@ -60,7 +60,7 @@
       position:absolute;
       width:40px;
       height:60px;
-      pointer-events:none; /* 드래그 불가 */
+      pointer-events:none; /* 고정, 드래그/클릭 불가 */
       z-index:18;
     }
 
@@ -75,6 +75,7 @@
       user-select:none;
       padding:3px;
       text-align:center;
+      background:rgba(59,130,246,0.25);
     }
 
     .canvas-shape.selected { box-shadow:0 0 0 2px #1d4ed8; }
@@ -113,13 +114,13 @@
       <div id="labelContainer" style="display:none; margin-bottom:8px;">
         <label>Custom Label</label>
         <input id="customLabelInput" type="text" placeholder="Enter custom name"
-               style="padding:4px; margin-top:4px;">
+               style="padding:4px; margin-top:4px; width:100%;">
       </div>
 
-      <label>Width (1 grid = 60cm)</label>
+      <label>Width (1 grid unit = 60cm)</label>
       <input id="customWidth" type="number" min="1" value="5" style="padding:4px; margin-bottom:8px;">
 
-      <label>Length (1 grid = 60cm)</label>
+      <label>Length (1 grid unit = 60cm)</label>
       <input id="customHeight" type="number" min="1" value="3" style="padding:4px; margin-bottom:12px;">
 
       <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
@@ -149,7 +150,7 @@
           <div class="west">W</div>
         </div>
 
-        <!-- Person Icon (fixed) -->
+        <!-- Person Icon (fixed under compass center) -->
         <img id="personIcon"
              class="person-icon"
              src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png">
@@ -165,14 +166,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-/* ==========================================================
-      GRID SETTINGS (80 x 60)
-========================================================== */
-let GRID_COLS = 80;
-let GRID_ROWS = 60;
-let GRID_SIZE_X, GRID_SIZE_Y;
-
-/* ========================================================== */
+/* ====== GRID & UNIT SETTINGS ====== */
+const GRID_SIZE = 10;      // 정사각형 그리드 px 크기 (전에 20 → 10으로 더 촘촘)
+const CM_PER_UNIT = 60;    // 1 grid = 60cm
 
 const canvas = document.getElementById("canvas");
 const compass = document.getElementById("compass");
@@ -189,20 +185,13 @@ let shapes = [];
 let selectedId = null;
 let shapeIdCounter = 1;
 
+/* 초기 GRID 백그라운드 설정 + 사람 위치 */
 window.onload = () => {
-  updateGridSizes();
+  canvas.style.backgroundSize = GRID_SIZE + "px " + GRID_SIZE + "px";
   positionPersonIcon();
 };
 
-/* Calculate grid sizes */
-function updateGridSizes() {
-  GRID_SIZE_X = canvas.offsetWidth / GRID_COLS;
-  GRID_SIZE_Y = canvas.offsetHeight / GRID_ROWS;
-
-  canvas.style.backgroundSize = `${GRID_SIZE_X}px ${GRID_SIZE_Y}px`;
-}
-
-/* Person icon under compass */
+/* compass 중앙 아래에 사람 고정 */
 function positionPersonIcon() {
   const compassRect = compass.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
@@ -211,55 +200,68 @@ function positionPersonIcon() {
   const personHeight = 60;
 
   const left =
-    canvasRect.width - 10 - (70 / 2) - (personWidth / 2);
+    (compassRect.left - canvasRect.left) + (compassRect.width / 2) - (personWidth / 2);
 
-  const top = 10 + 70 + 5;
+  const top = (compassRect.bottom - canvasRect.top) + 5; // 컴퍼스 아래 + 5px
 
   personIcon.style.left = left + "px";
   personIcon.style.top = top + "px";
 }
 
-
-/* ==========================================================
-    ROOM CREATION
-========================================================== */
-
+/* Others 선택 시 label 입력칸 보이기 */
 typeSelect.addEventListener("change", () => {
   labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
 });
 
+/* ====== 방 생성 ====== */
 addBtn.addEventListener("click", () => {
   const type = typeSelect.value;
   const wUnits = +document.getElementById("customWidth").value;
   const hUnits = +document.getElementById("customHeight").value;
 
-  if (wUnits <= 0 || hUnits <= 0)
-    return alert("Size must be positive.");
+  if (wUnits <= 0 || hUnits <= 0) {
+    alert("Size must be positive.");
+    return;
+  }
 
-  const w = wUnits * GRID_SIZE_X;
-  const h = hUnits * GRID_SIZE_Y;
+  const w = wUnits * GRID_SIZE;
+  const h = hUnits * GRID_SIZE;
 
-  const label = (type === "Others")
-      ? document.getElementById("customLabelInput").value
-      : type;
+  let label = type;
+  if (type === "Others") {
+    const customLabel = document.getElementById("customLabelInput").value.trim();
+    if (!customLabel) {
+      alert("Enter custom label.");
+      return;
+    }
+    label = customLabel;
+  }
 
   const rect = canvas.getBoundingClientRect();
-  const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE_X) * GRID_SIZE_X;
-  const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE_Y) * GRID_SIZE_Y;
+  const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
+  const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
 
-  addShape({ roomType: type, label: `${label} (${wUnits}×${hUnits})`, x, y, width: w, height: h });
+  addShape({
+    roomType: type,
+    label: `${label} (${wUnits}×${hUnits})`,
+    x,
+    y,
+    width: w,
+    height: h
+  });
 });
 
+/* DOM에 사각형 추가 */
 function addShape({ roomType, label, x, y, width, height }) {
   const id = "shape_" + shapeIdCounter++;
 
   const div = document.createElement("div");
   div.className = "canvas-shape";
   div.dataset.id = id;
-  div.style.left = x+"px";
-  div.style.top = y+"px";
-  div.style.width = width+"px";
-  div.style.height = height+"px";
+  div.style.left = x + "px";
+  div.style.top = y + "px";
+  div.style.width = width + "px";
+  div.style.height = height + "px";
   div.textContent = label;
 
   canvas.appendChild(div);
@@ -270,7 +272,7 @@ function addShape({ roomType, label, x, y, width, height }) {
   updateJSON();
 }
 
-/* Move handler */
+/* ====== 드래그 이동 ====== */
 function attachMove(el) {
   el.addEventListener("mousedown", (e) => {
     selectedId = el.dataset.id;
@@ -284,14 +286,17 @@ function attachMove(el) {
       let nx = initialLeft + (ev.clientX - startX);
       let ny = initialTop + (ev.clientY - startY);
 
-      nx = Math.round(nx / GRID_SIZE_X) * GRID_SIZE_X;
-      ny = Math.round(ny / GRID_SIZE_Y) * GRID_SIZE_Y;
+      nx = Math.round(nx / GRID_SIZE) * GRID_SIZE;
+      ny = Math.round(ny / GRID_SIZE) * GRID_SIZE;
 
       el.style.left = nx + "px";
       el.style.top = ny + "px";
 
       const s = shapes.find(o => o.id === selectedId);
-      s.x = nx; s.y = ny;
+      if (s) {
+        s.x = nx;
+        s.y = ny;
+      }
 
       updateJSON();
     }
@@ -306,65 +311,74 @@ function attachMove(el) {
   });
 }
 
-/* Delete rooms (not person) */
+/* ====== Delete 키로 방 삭제 (person은 아예 shapes에 없음) ====== */
 document.addEventListener("keydown", (e) => {
   if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-    const s = shapes.find(s => s.id === selectedId);
-    if (!s) return;
-
     const el = canvas.querySelector(`[data-id="${selectedId}"]`);
-    el?.remove();
+    if (!el) return;
+
+    el.remove();
     shapes = shapes.filter(s => s.id !== selectedId);
     selectedId = null;
     updateJSON();
   }
 });
 
-/* ==========================================================
-    JSON EXPORT (person excluded)
-========================================================== */
+/* ====== JSON Export (1 grid = 60cm) ====== */
 function updateJSON() {
-  const result = shapes.map(s => ({
-    id: s.id,
-    roomType: s.roomType,
-    label: s.label,
+  const result = shapes.map(s => {
+    const xUnits = s.x / GRID_SIZE;
+    const yUnits = s.y / GRID_SIZE;
+    const wUnits = s.width / GRID_SIZE;
+    const hUnits = s.height / GRID_SIZE;
 
-    x: (s.x / GRID_SIZE_X) * 60,
-    y: (s.y / GRID_SIZE_Y) * 60,
-    width:   (s.width  / GRID_SIZE_X) * 60,
-    height:  (s.height / GRID_SIZE_Y) * 60
-  }));
+    return {
+      id: s.id,
+      roomType: s.roomType,
+      label: s.label,
+      x: xUnits * CM_PER_UNIT,
+      y: yUnits * CM_PER_UNIT,
+      width: wUnits * CM_PER_UNIT,
+      height: hUnits * CM_PER_UNIT
+    };
+  });
 
   output.value = JSON.stringify(result, null, 2);
 }
 
-/* Clear all rooms (not person) */
+/* ====== Clear Canvas (사람/컴퍼스는 그대로) ====== */
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all rooms?")) return;
 
   shapes = [];
   [...canvas.querySelectorAll(".canvas-shape")].forEach(el => el.remove());
-
   updateJSON();
 });
 
-/* Save */
+/* ====== Save JSON + PNG ====== */
 saveBtn.addEventListener("click", async () => {
   const blob = new Blob([output.value], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = "layout.json"; a.click();
+  a.href = url;
+  a.download = "layout.json";
+  a.click();
   URL.revokeObjectURL(url);
 
   const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
-  screenshot.toBlob((blob) => {
-    const pngUrl = URL.createObjectURL(blob);
+  screenshot.toBlob((imgBlob) => {
+    const pngUrl = URL.createObjectURL(imgBlob);
     const a2 = document.createElement("a");
-    a2.href = pngUrl; a2.download = "layout.png"; a2.click();
+    a2.href = pngUrl;
+    a2.download = "layout.png";
+    a2.click();
     URL.revokeObjectURL(pngUrl);
   });
+
+  alert("Saved JSON + PNG");
 });
 </script>
 
 </body>
 </html>
+
