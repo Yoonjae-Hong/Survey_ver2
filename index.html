@@ -2,275 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Drag-and-Drop Floorplan Experiment Tool</title>
+  <title>Floorplan Design Tool</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 0; background:#f5f5f7; color:#222; }
+
+    .app-container { display:flex; flex-direction:column; height:100vh; }
+
+    .header { padding:12px 20px; background:#fff; border-bottom:1px solid #ddd; }
+    .header-title { font-size:18px; font-weight:600; }
+
+    .main { flex:1; display:grid; grid-template-columns:260px 1fr; gap:12px; padding:12px; }
+    .panel { background:#fff; border-radius:14px; padding:12px; box-shadow:0 2px 6px rgba(0,0,0,0.04); display:flex; flex-direction:column; }
+
+    .instruction-bar {
+      font-size:12px; color:#555;
+      background:#f0f0f0;
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid #ddd;
+      margin-bottom:8px;
+      line-height:1.4;
     }
 
-    body {
-      margin: 0;
-      padding: 0;
-      background: #f5f5f7;
-      color: #222;
-    }
-
-    .app-container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    /* Header */
-    .header {
-      padding: 12px 20px;
-      background: #ffffff;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-    }
-
-    .header-title {
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .header-subtitle {
-      font-size: 13px;
-      color: #666;
-      margin-top: 4px;
-    }
-
-    .header-right {
-      font-size: 12px;
-      color: #777;
-    }
-
-    /* Main layout */
-    .main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 12px;
-      padding: 12px;
-    }
-
-    /* Panel */
-    .panel {
-      background: #ffffff;
-      border-radius: 14px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .panel-header {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .panel-subtext {
-      font-size: 11px;
-      color: #777;
-      margin-bottom: 10px;
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid #ddd;
-      font-size: 10px;
-      color: #555;
-      gap: 4px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: #888;
-    }
-
-    /* Palette */
-    .palette-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-
-    .palette-section-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: #555;
-      margin-top: 4px;
-      margin-bottom: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .shape-item {
-      border-radius: 10px;
-      border: 1px solid #e0e0e0;
-      padding: 8px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      cursor: grab;
-      background: #fafafa;
-      transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
-    }
-
-    .shape-item:hover {
-      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
-      transform: translateY(-1px);
-      background: #fdfdfd;
-    }
-
-    .shape-preview {
-      min-width: 40px;
-      min-height: 30px;
-      border-radius: 0px;
-      border: 1px dashed #bbb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      color: #666;
-      font-weight: 600;
-    }
-
-    .shape-meta {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .shape-name {
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    /* ============================================
-       🎨 PALETTE COLORS
-       ============================================ */
-
-    /* Living room */
-    .shape-item[data-room-type="Living room"] { background: #EFF6FF; }
-    .shape-item[data-room-type="Living room"] .shape-preview {
-      border-color: #3B82F6;
-      color: #3B82F6;
-    }
-
-    /* Kitchen */
-    .shape-item[data-room-type="Kitchen"] { background: #ECFDF5; }
-    .shape-item[data-room-type="Kitchen"] .shape-preview {
-      border-color: #22C55E;
-      color: #22C55E;
-    }
-
-    /* Bedroom */
-    .shape-item[data-room-type="Bedroom"] { background: #F5F3FF; }
-    .shape-item[data-room-type="Bedroom"] .shape-preview {
-      border-color: #8B5CF6;
-      color: #8B5CF6;
-    }
-
-    /* Bathroom */
-    .shape-item[data-room-type="Bathroom"] { background: #FEF2F2; }
-    .shape-item[data-room-type="Bathroom"] .shape-preview {
-      border-color: #EF4444;
-      color: #EF4444;
-    }
-
-    /* Storage */
-    .shape-item[data-room-type="Storage"] { background: #FEFCE8; }
-    .shape-item[data-room-type="Storage"] .shape-preview {
-      border-color: #FACC15;
-      color: #FACC15;
-    }
-
-    /* Balcony */
-    .shape-item[data-room-type="Balcony"] { background: #FFF7ED; }
-    .shape-item[data-room-type="Balcony"] .shape-preview {
-      border-color: #F97316;
-      color: #F97316;
-    }
-
-    /* Canvas */
-    .canvas-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 0;
-    }
+    .canvas-wrapper { display:flex; flex-direction:column; gap:8px; }
 
     .canvas {
-      position: relative;
-      flex: 1;
-      min-height: 360px;
-      border-radius: 0px;
+      position:relative;
+      flex:1;
+      min-height:360px;
+      border:1px solid #ccc;
       background:
         linear-gradient(#e0e0e0 1px, transparent 1px),
         linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-      background-size: 20px 20px;
-      background-position: 0 0;
-      border: 1px solid #ccc;
-      overflow: hidden;
+      background-size: 18px 18px;
+      overflow:hidden;
     }
 
-    .canvas-drop-hint {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-      font-size: 13px;
-      color: #999;
-      text-align: center;
-      padding: 0 24px;
+    /* Compass */
+    .compass {
+      position:absolute;
+      top:10px; right:10px;
+      width:70px; height:70px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.9);
+      border:2px solid #555;
+      box-shadow:0 2px 4px rgba(0,0,0,0.15);
+      z-index:20;
+    }
+    .compass div { position:absolute; font-weight:700; font-size:13px; color:#333; }
+    .north { top:4px; left:50%; transform:translateX(-50%); }
+    .east  { right:4px; top:50%; transform:translateY(-50%); }
+    .south { bottom:4px; left:50%; transform:translateX(-50%); }
+    .west  { left:4px; top:50%; transform:translateY(-50%); }
+
+    /* Person icon */
+    .person-icon {
+      width:40px;
+      height:50px;
+      cursor:move;
+      background:none !important;
+      border:none !important;
+      z-index:18;
+      position:absolute;
+      user-select:none;
     }
 
+    /* Room shapes */
     .canvas-shape {
-      position: absolute;
-      border-radius: 0px;
-      background: rgba(59,130,246,0.12);
-      border: 1px solid rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      padding: 4px;
-      cursor: move;
-      user-select: none;
+      position:absolute;
+      border:1px solid rgba(0,0,0,0.3);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      font-size:11px;
+      cursor:move;
+      user-select:none;
+      padding:3px;
+      text-align:center;
+      background:rgba(59,130,246,0.25); /* fallback */
     }
 
-    .canvas-shape.selected {
-      box-shadow: 0 0 0 2px #1d4ed8;
-    }
+    .canvas-shape.selected { box-shadow:0 0 0 2px #1d4ed8; }
 
-    textarea {
-      width: 100%;
-      min-height: 80px;
-      resize: vertical;
-      font-size: 11px;
-      padding: 6px;
-      margin-top: 8px;
-    }
+    .btn { padding:6px 10px; border-radius:6px; font-size:12px; cursor:pointer; border:1px solid #ccc; background:#fff; }
+    .btn-primary { background:#2563eb; color:white; border-color:#2563eb; }
+
+    textarea { width:100%; height:100px; padding:6px; font-size:11px; background:#fafafa; border-radius:8px; border:1px solid #ddd; }
   </style>
 </head>
 
@@ -278,250 +97,287 @@
 <div class="app-container">
 
   <header class="header">
-    <div>
-      <div class="header-title">Floorplan Arrangement Experiment Tool</div>
-      <div class="header-subtitle">Drag room tiles from the left palette and drop them onto the canvas.</div>
-    </div>
+    <div class="header-title">Floorplan Design Tool</div>
   </header>
 
   <main class="main">
-    <!-- Palette -->
+
+    <!-- LEFT PANEL -->
     <section class="panel">
-      <div class="panel-header">
-        <span>Room Type Palette</span>
+      <h3 style="margin:4px 0 10px 0;">Create a Custom Room</h3>
+
+      <label>Room Type</label>
+      <select id="customRoomType" style="padding:4px; margin-bottom:8px;">
+        <option>Living Room</option>
+        <option>Kitchen</option>
+        <option>Dining Room</option>
+        <option>Master Bedroom</option>
+        <option>Guest Bedroom</option>
+        <option>Bathroom</option>
+        <option value="Others">Others</option>
+      </select>
+
+      <div id="labelContainer" style="display:none; margin-bottom:8px;">
+        <label>Custom Label</label>
+        <input id="customLabelInput" type="text" placeholder="Enter custom name"
+               style="padding:4px; margin-top:4px; width:100%;">
       </div>
 
-      <div class="palette-list" id="palette">
+      <label>Width (1 grid unit = 60cm)</label>
+      <input id="customWidth" type="number" min="1" value="5"
+             style="padding:4px; margin-bottom:8px;">
 
-        <!-- LIVING ROOM -->
-        <div class="palette-section-title">Living Room</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Living room" data-size="Small"
-             data-label="Living room – Small" data-width="120" data-height="80">
-          <div class="shape-preview">LR S</div>
-          <div class="shape-meta"><div class="shape-name">Living room – Small</div></div>
-        </div>
+      <label>Length (1 grid unit = 60cm)</label>
+      <input id="customHeight" type="number" min="1" value="3"
+             style="padding:4px; margin-bottom:12px;">
 
-        <!-- KITCHEN -->
-        <div class="palette-section-title">Kitchen</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Kitchen" data-size="Small"
-             data-label="Kitchen – Small" data-width="100" data-height="70">
-          <div class="shape-preview">K S</div>
-          <div class="shape-meta"><div class="shape-name">Kitchen – Small</div></div>
-        </div>
+      <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
 
-        <!-- BEDROOM -->
-        <div class="palette-section-title">Bedroom</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Bedroom" data-size="Small"
-             data-label="Bedroom – Small" data-width="110" data-height="70">
-          <div class="shape-preview">BR S</div>
-          <div class="shape-meta"><div class="shape-name">Bedroom – Small</div></div>
-        </div>
+      <hr style="margin:16px 0;">
 
-        <!-- BATHROOM -->
-        <div class="palette-section-title">Bathroom</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Bathroom" data-size="Small"
-             data-label="Bathroom – Small" data-width="60" data-height="50">
-          <div class="shape-preview">BA S</div>
-          <div class="shape-meta"><div class="shape-name">Bathroom – Small</div></div>
-        </div>
-
-        <!-- STORAGE -->
-        <div class="palette-section-title">Storage</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Storage" data-size="Small"
-             data-label="Storage – Small" data-width="50" data-height="50">
-          <div class="shape-preview">ST S</div>
-          <div class="shape-meta"><div class="shape-name">Storage – Small</div></div>
-        </div>
-
-        <!-- BALCONY -->
-        <div class="palette-section-title">Balcony</div>
-        <div class="shape-item" draggable="true"
-             data-room-type="Balcony" data-size="Small"
-             data-label="Balcony – Small" data-width="80" data-height="40">
-          <div class="shape-preview">BL S</div>
-          <div class="shape-meta"><div class="shape-name">Balcony – Small</div></div>
-        </div>
-
-      </div>
+      <button id="clearCanvasBtn" class="btn">Clear Canvas</button>
+      <button id="exportJsonBtn" class="btn btn-primary" style="margin-top:8px;">Save JSON + PNG</button>
     </section>
 
-    <!-- Canvas -->
+    <!-- RIGHT PANEL -->
     <section class="panel canvas-wrapper">
-      <div class="canvas" id="canvas">
-        <div class="canvas-drop-hint" id="dropHint">Drop room tiles here</div>
+
+      <div class="instruction-bar">
+        Instruction: Select a room type and enter its size. Drag rooms on the canvas to design your floor plan.
+        Use Delete to remove a room. Save JSON + PNG to download the files.
       </div>
 
-      <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here..."></textarea>
+      <div class="canvas" id="canvas">
+
+        <!-- Compass -->
+        <div class="compass" id="compass">
+          <div class="north">N</div>
+          <div class="east">E</div>
+          <div class="south">S</div>
+          <div class="west">W</div>
+        </div>
+
+        <!-- Person Icon -->
+        <div id="personIcon" class="canvas-shape person-icon" data-id="person">
+          <img src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
+               style="width:100%; height:100%; object-fit:contain;">
+        </div>
+      </div>
+
+      <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
+
     </section>
   </main>
 </div>
 
-<!-- html2canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-  const GRID_SIZE = 10;
+/* ====== GRID SETTINGS ====== */
+const GRID_SIZE = 18;
+const CM_PER_UNIT = 60;
 
-  const ROOM_COLORS = {
-    "Living room": "rgba(59,130,246,0.25)",
-    "Kitchen": "rgba(34,197,94,0.25)",
-    "Bedroom": "rgba(139,92,246,0.25)",
-    "Bathroom": "rgba(239,68,68,0.25)",
-    "Storage": "rgba(250,204,21,0.25)",
-    "Balcony": "rgba(249,115,22,0.25)"
-  };
+/* ⭐ 방 타입별 색상 (추가된 부분) */
+const ROOM_COLORS = {
+  "Living Room":    "rgba(59,130,246,0.25)",
+  "Kitchen":        "rgba(34,197,94,0.25)",
+  "Dining Room":    "rgba(14,165,233,0.25)",
+  "Master Bedroom": "rgba(139,92,246,0.25)",
+  "Guest Bedroom":  "rgba(168,85,247,0.25)",
+  "Bathroom":       "rgba(239,68,68,0.25)",
+  "Others":         "rgba(107,114,128,0.25)"
+};
 
-  const canvas = document.getElementById('canvas');
-  const palette = document.getElementById('palette');
-  const dropHint = document.getElementById('dropHint');
-  const layoutOutput = document.getElementById('layoutOutput');
+const canvas = document.getElementById("canvas");
+const compass = document.getElementById("compass");
+const personIcon = document.getElementById("personIcon");
 
-  let draggedShapeData = null;
-  let shapesOnCanvas = [];
-  let shapeIdCounter = 1;
-  let selectedShapeId = null;
+const typeSelect = document.getElementById("customRoomType");
+const labelContainer = document.getElementById("labelContainer");
+const output = document.getElementById("layoutOutput");
 
-  /* Palette drag */
-  palette.addEventListener('dragstart', (e) => {
-    const item = e.target.closest('.shape-item');
-    if (!item) return;
+let shapes = [];
+let selectedId = null;
+let shapeIdCounter = 1;
 
-    draggedShapeData = {
-      roomType: item.dataset.roomType,
-      size: item.dataset.size,
-      label: item.dataset.label,
-      width: parseInt(item.dataset.width),
-      height: parseInt(item.dataset.height)
-    };
+window.onload = () => {
+  canvas.style.backgroundSize = GRID_SIZE + "px " + GRID_SIZE + "px";
+  placePersonIcon();
+};
+
+function placePersonIcon() {
+  const c = compass.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
+
+  let left = (c.left - rect.left) + (c.width / 2) - 20;
+  let top = (c.bottom - rect.top) + 5;
+
+  left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+  top  = Math.round(top / GRID_SIZE) * GRID_SIZE;
+
+  personIcon.style.left = left + "px";
+  personIcon.style.top  = top + "px";
+
+  shapes.push({
+    id: "person",
+    roomType: "Person",
+    label: "Person",
+    x: left,
+    y: top,
+    width: 40,
+    height: 50,
+    isPerson: true
   });
 
-  palette.addEventListener('dragend', () => draggedShapeData = null);
+  attachMove(personIcon);
+}
 
-  /* Canvas drop */
-  canvas.addEventListener('dragover', (e) => e.preventDefault());
-  canvas.addEventListener('drop', (e) => {
-    if (!draggedShapeData) return;
+typeSelect.addEventListener("change", () => {
+  labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
+});
 
-    const rect = canvas.getBoundingClientRect();
-    let x = e.clientX - rect.left - draggedShapeData.width / 2;
-    let y = e.clientY - rect.top - draggedShapeData.height / 2;
+document.getElementById("addCustomRoomBtn").addEventListener("click", () => {
+  const type = typeSelect.value;
+  const wUnits = +document.getElementById("customWidth").value;
+  const hUnits = +document.getElementById("customHeight").value;
 
-    x = Math.round(x / GRID_SIZE) * GRID_SIZE;
-    y = Math.round(y / GRID_SIZE) * GRID_SIZE;
+  if (wUnits <= 0 || hUnits <= 0) { alert("Invalid size"); return; }
 
-    addShapeToCanvas({ ...draggedShapeData, x, y });
-    draggedShapeData = null;
-  });
+  const w = wUnits * GRID_SIZE;
+  const h = hUnits * GRID_SIZE;
 
-  /* Add shape */
-  function addShapeToCanvas({ roomType, size, label, x, y, width, height }) {
-    dropHint.style.display = "none";
-
-    const id = "shape_" + shapeIdCounter++;
-    const shapeEl = document.createElement("div");
-    shapeEl.className = "canvas-shape";
-
-    shapeEl.style.background = ROOM_COLORS[roomType];
-    shapeEl.style.left = x + "px";
-    shapeEl.style.top = y + "px";
-    shapeEl.style.width = width + "px";
-    shapeEl.style.height = height + "px";
-    shapeEl.dataset.id = id;
-
-    shapeEl.innerHTML = `<b>${roomType}</b><br>${size}`;
-    canvas.appendChild(shapeEl);
-
-    shapesOnCanvas.push({ id, roomType, size, label, x, y, width, height });
-
-    attachShapeEvents(shapeEl);
-    updateJsonOutput();
+  let label = type;
+  if (type === "Others") {
+    label = document.getElementById("customLabelInput").value.trim();
+    if (!label) { alert("Enter label"); return; }
   }
 
-  /* Move + select */
-  function attachShapeEvents(shapeEl) {
-    shapeEl.addEventListener("mousedown", onShapeMouseDown);
-    shapeEl.addEventListener("click", (e) => {
-      e.stopPropagation();
-      selectShape(shapeEl.dataset.id);
-    });
-  }
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round((rect.width/2 - w/2)/GRID_SIZE) * GRID_SIZE;
+  const y = Math.round((rect.height/2 - h/2)/GRID_SIZE) * GRID_SIZE;
 
-  canvas.addEventListener("mousedown", (e) => selectShape(null));
+  addShape({ roomType:type, label:`${label} (${wUnits}×${hUnits})`, x, y, width:w, height:h });
+});
 
-  function selectShape(id) {
-    selectedShapeId = id;
-    document.querySelectorAll(".canvas-shape").forEach((el) =>
-      el.classList.toggle("selected", el.dataset.id === id)
-    );
-  }
+/* Core function: Add shape (색상만 추가) */
+function addShape({ roomType, label, x, y, width, height }) {
+  const id = "shape_" + shapeIdCounter++;
 
-  /* Delete key */
-  document.addEventListener("keydown", (e) => {
-    if ((e.key === "Delete" || e.key === "Backspace") && selectedShapeId) {
-      deleteShape(selectedShapeId);
-      selectedShapeId = null;
-    }
-  });
+  const div = document.createElement("div");
+  div.className = "canvas-shape";
+  div.dataset.id = id;
+  div.style.left = x+"px";
+  div.style.top = y+"px";
+  div.style.width = width+"px";
+  div.style.height = height+"px";
 
-  function deleteShape(id) {
-    const el = canvas.querySelector(`[data-id="${id}"]`);
-    el?.remove();
-    shapesOnCanvas = shapesOnCanvas.filter((s) => s.id !== id);
+  /* ⭐ 방 타입별 색상 적용 */
+  div.style.background = ROOM_COLORS[roomType] || "rgba(59,130,246,0.25)";
 
-    if (shapesOnCanvas.length === 0) dropHint.style.display = "flex";
-    updateJsonOutput();
-  }
+  div.textContent = label;
 
-  /* Drag move */
-  function onShapeMouseDown(e) {
-    const shapeEl = e.currentTarget;
-    const rect = canvas.getBoundingClientRect();
+  canvas.appendChild(div);
+
+  shapes.push({ id, roomType, label, x, y, width, height });
+
+  attachMove(div);
+  updateJSON();
+}
+
+/* Drag logic */
+function attachMove(el) {
+  el.addEventListener("mousedown", e => {
+    selectedId = el.dataset.id;
+
     const startX = e.clientX;
     const startY = e.clientY;
-    const initialLeft = parseInt(shapeEl.style.left);
-    const initialTop = parseInt(shapeEl.style.top);
+    const initX = parseFloat(el.style.left);
+    const initY = parseFloat(el.style.top);
 
-    function onMouseMove(ev) {
-      let newX = initialLeft + (ev.clientX - startX);
-      let newY = initialTop + (ev.clientY - startY);
+    function move(ev) {
+      let nx = initX + (ev.clientX - startX);
+      let ny = initY + (ev.clientY - startY);
 
-      newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
-      newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+      nx = Math.round(nx / GRID_SIZE) * GRID_SIZE;
+      ny = Math.round(ny / GRID_SIZE) * GRID_SIZE;
 
-      newX = Math.max(0, Math.min(newX, rect.width - shapeEl.offsetWidth));
-      newY = Math.max(0, Math.min(newY, rect.height - shapeEl.offsetHeight));
+      el.style.left = nx + "px";
+      el.style.top = ny + "px";
 
-      shapeEl.style.left = newX + "px";
-      shapeEl.style.top = newY + "px";
+      const s = shapes.find(o => o.id === selectedId);
+      if (s) { s.x = nx; s.y = ny; }
 
-      const id = shapeEl.dataset.id;
-      const s = shapesOnCanvas.find((s) => s.id === id);
-      s.x = newX;
-      s.y = newY;
-
-      updateJsonOutput();
+      updateJSON();
     }
 
-    function onMouseUp() {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
+    function stop() {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
     }
 
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  });
+}
 
-  /* JSON output */
-  function updateJsonOutput() {
-    layoutOutput.value = JSON.stringify(shapesOnCanvas, null, 2);
+document.addEventListener("keydown", e => {
+  if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+    const s = shapes.find(o => o.id === selectedId);
+    if (s?.isPerson) return;
+
+    const el = canvas.querySelector(`[data-id="${selectedId}"]`);
+    el?.remove();
+    shapes = shapes.filter(o => o.id !== selectedId);
+    selectedId = null;
+    updateJSON();
   }
+});
+
+function updateJSON() {
+  const result = shapes
+    .filter(s => !s.isPerson)
+    .map(s => ({
+      id: s.id,
+      roomType: s.roomType,
+      label: s.label,
+      x: (s.x / GRID_SIZE) * CM_PER_UNIT,
+      y: (s.y / GRID_SIZE) * CM_PER_UNIT,
+      width: (s.width / GRID_SIZE) * CM_PER_UNIT,
+      height: (s.height / GRID_SIZE) * CM_PER_UNIT
+    }));
+
+  output.value = JSON.stringify(result, null, 2);
+}
+
+document.getElementById("clearCanvasBtn").addEventListener("click", () => {
+  if (!confirm("Clear all rooms?")) return;
+  shapes = shapes.filter(s => s.isPerson);
+  [...canvas.querySelectorAll(".canvas-shape")].forEach(el => {
+    if (el.dataset.id !== "person") el.remove();
+  });
+  updateJSON();
+});
+
+document.getElementById("exportJsonBtn").addEventListener("click", async () => {
+  const blob = new Blob([output.value], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "layout.json";
+  a.click();
+
+  const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
+  screenshot.toBlob((imgBlob) => {
+    const pngUrl = URL.createObjectURL(imgBlob);
+    const a2 = document.createElement("a");
+    a2.href = pngUrl;
+    a2.download = "layout.png";
+    a2.click();
+  });
+});
 </script>
 
 </body>
 </html>
+
 
