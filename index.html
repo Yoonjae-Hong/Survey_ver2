@@ -36,7 +36,7 @@
       background:
         linear-gradient(#e0e0e0 1px, transparent 1px),
         linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-      background-size: 10px 10px;  /* 정사각형 그리드, JS에서도 다시 세팅 */
+      background-size: 18px 18px;
       overflow:hidden;
     }
 
@@ -56,15 +56,13 @@
     .south { bottom:4px; left:50%; transform:translateX(-50%); }
     .west  { left:4px; top:50%; transform:translateY(-50%); }
 
-  .person-icon {
-    position:absolute;
-    width:40px;
-    height:50px;
-    pointer-events:auto; /* ← 드래그 되려면 auto */
-    cursor:move;
-    z-index:18;
-    }
-
+    .person-icon {
+      position:absolute;
+      width:40px;
+      height:50px;
+      pointer-events:auto;
+      cursor:move;
+      z-index:18;
     }
 
     .canvas-shape {
@@ -92,7 +90,6 @@
 
 <body>
 <div class="app-container">
-
   <header class="header">
     <div class="header-title">Floorplan Design Tool</div>
   </header>
@@ -153,9 +150,8 @@
           <div class="west">W</div>
         </div>
 
-        <!-- Person Icon (fixed under compass center) -->
-        <img id="personIcon"
-             class="person-icon"
+        <!-- Person Icon -->
+        <img id="personIcon" class="person-icon"
              src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png">
       </div>
 
@@ -167,11 +163,10 @@
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
 <script>
-/* ====== GRID & UNIT SETTINGS ====== */
-const GRID_SIZE = 18;      // 정사각형 그리드 px 크기 (전에 20 → 10으로 더 촘촘)
-const CM_PER_UNIT = 60;    // 1 grid = 60cm
+/* GRID SETTINGS */
+const GRID_SIZE = 18;
+const CM_PER_UNIT = 60;
 
 const canvas = document.getElementById("canvas");
 const compass = document.getElementById("compass");
@@ -188,51 +183,49 @@ let shapes = [];
 let selectedId = null;
 let shapeIdCounter = 1;
 
-/* 초기 GRID 백그라운드 설정 + 사람 위치 */
+/* INITIALIZE */
 window.onload = () => {
   canvas.style.backgroundSize = GRID_SIZE + "px " + GRID_SIZE + "px";
-  positionPersonIcon();
+  placePersonIcon();
 };
 
-/* compass 중앙 아래에 사람 고정 */
-function positionPersonIcon() {
-  const compassRect = compass.getBoundingClientRect();
+/* PERSON ICON – SNAP TO GRID BELOW COMPASS */
+function placePersonIcon() {
+  const cRect = compass.getBoundingClientRect();
   const canvasRect = canvas.getBoundingClientRect();
 
-  const personWidth = 40;
-  const personHeight = 50;
+  const pw = 40;
+  const ph = 50;
 
-  let left = (compassRect.left - canvasRect.left) + (compassRect.width / 2) - (personWidth / 2);
-  let top = (compassRect.bottom - canvasRect.top) + 5;
+  let left = (cRect.left - canvasRect.left) + (cRect.width / 2) - pw / 2;
+  let top  = (cRect.bottom - canvasRect.top) + 5;
 
-  // ⬇ GRID에 맞게 스냅
   left = Math.round(left / GRID_SIZE) * GRID_SIZE;
-  top = Math.round(top / GRID_SIZE) * GRID_SIZE;
+  top  = Math.round(top  / GRID_SIZE) * GRID_SIZE;
 
   personIcon.style.left = left + "px";
   personIcon.style.top = top + "px";
 
-  // shapes 배열에도 추가 (drag 되도록)
   shapes.push({
     id: "person",
     roomType: "Person",
     label: "Person",
     x: left,
     y: top,
-    width: personWidth,
-    height: personHeight,
+    width: pw,
+    height: ph,
     isPerson: true
   });
 
   attachMove(personIcon);
 }
 
-/* Others 선택 시 label 입력칸 보이기 */
+/* SHOW CUSTOM LABEL FIELD */
 typeSelect.addEventListener("change", () => {
   labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
 });
 
-/* ====== 방 생성 ====== */
+/* ADD ROOM */
 addBtn.addEventListener("click", () => {
   const type = typeSelect.value;
   const wUnits = +document.getElementById("customWidth").value;
@@ -248,12 +241,9 @@ addBtn.addEventListener("click", () => {
 
   let label = type;
   if (type === "Others") {
-    const customLabel = document.getElementById("customLabelInput").value.trim();
-    if (!customLabel) {
-      alert("Enter custom label.");
-      return;
-    }
-    label = customLabel;
+    const custom = document.getElementById("customLabelInput").value.trim();
+    if (!custom) return alert("Enter custom label.");
+    label = custom;
   }
 
   const rect = canvas.getBoundingClientRect();
@@ -270,7 +260,7 @@ addBtn.addEventListener("click", () => {
   });
 });
 
-/* DOM에 사각형 추가 */
+/* INSERT SHAPE INTO CANVAS */
 function addShape({ roomType, label, x, y, width, height }) {
   const id = "shape_" + shapeIdCounter++;
 
@@ -291,7 +281,7 @@ function addShape({ roomType, label, x, y, width, height }) {
   updateJSON();
 }
 
-/* ====== 드래그 이동 ====== */
+/* DRAGGING */
 function attachMove(el) {
   el.addEventListener("mousedown", (e) => {
     selectedId = el.dataset.id;
@@ -299,17 +289,17 @@ function attachMove(el) {
     const startX = e.clientX;
     const startY = e.clientY;
     const initialLeft = parseFloat(el.style.left);
-    const initialTop = parseFloat(el.style.top);
+    const initialTop  = parseFloat(el.style.top);
 
     function move(ev) {
       let nx = initialLeft + (ev.clientX - startX);
-      let ny = initialTop + (ev.clientY - startY);
+      let ny = initialTop  + (ev.clientY - startY);
 
       nx = Math.round(nx / GRID_SIZE) * GRID_SIZE;
       ny = Math.round(ny / GRID_SIZE) * GRID_SIZE;
 
       el.style.left = nx + "px";
-      el.style.top = ny + "px";
+      el.style.top  = ny + "px";
 
       const s = shapes.find(o => o.id === selectedId);
       if (s) {
@@ -330,51 +320,49 @@ function attachMove(el) {
   });
 }
 
-/* ====== Delete 키로 방 삭제 (person은 아예 shapes에 없음) ====== */
+/* DELETE ROOM (PERSON CANNOT BE DELETED) */
 document.addEventListener("keydown", (e) => {
   if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-    const el = canvas.querySelector(`[data-id="${selectedId}"]`);
-    if (!el) return;
+    const target = shapes.find(s => s.id === selectedId);
+    if (target?.isPerson) return; // DO NOT DELETE PERSON
 
-    el.remove();
+    const el = canvas.querySelector(`[data-id="${selectedId}"]`);
+    el?.remove();
+
     shapes = shapes.filter(s => s.id !== selectedId);
     selectedId = null;
     updateJSON();
   }
 });
 
-/* ====== JSON Export (1 grid = 60cm) ====== */
+/* JSON EXPORT */
 function updateJSON() {
   const result = shapes.map(s => {
-    const xUnits = s.x / GRID_SIZE;
-    const yUnits = s.y / GRID_SIZE;
-    const wUnits = s.width / GRID_SIZE;
-    const hUnits = s.height / GRID_SIZE;
-
     return {
       id: s.id,
       roomType: s.roomType,
       label: s.label,
-      x: xUnits * CM_PER_UNIT,
-      y: yUnits * CM_PER_UNIT,
-      width: wUnits * CM_PER_UNIT,
-      height: hUnits * CM_PER_UNIT
+      x: (s.x / GRID_SIZE) * CM_PER_UNIT,
+      y: (s.y / GRID_SIZE) * CM_PER_UNIT,
+      width: (s.width / GRID_SIZE) * CM_PER_UNIT,
+      height: (s.height / GRID_SIZE) * CM_PER_UNIT
     };
   });
 
   output.value = JSON.stringify(result, null, 2);
 }
 
-/* ====== Clear Canvas (사람/컴퍼스는 그대로) ====== */
+/* CLEAR ALL ROOMS */
 clearBtn.addEventListener("click", () => {
   if (!confirm("Clear all rooms?")) return;
 
-  shapes = [];
+  shapes = shapes.filter(s => s.isPerson); // keep only person
+
   [...canvas.querySelectorAll(".canvas-shape")].forEach(el => el.remove());
   updateJSON();
 });
 
-/* ====== Save JSON + PNG ====== */
+/* SAVE JSON + PNG */
 saveBtn.addEventListener("click", async () => {
   const blob = new Blob([output.value], { type:"application/json" });
   const url = URL.createObjectURL(blob);
@@ -397,7 +385,7 @@ saveBtn.addEventListener("click", async () => {
   alert("Saved JSON + PNG");
 });
 </script>
-
 </body>
 </html>
+
 
