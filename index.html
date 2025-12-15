@@ -56,12 +56,15 @@
     .south { bottom:4px; left:50%; transform:translateX(-50%); }
     .west  { left:4px; top:50%; transform:translateY(-50%); }
 
-    .person-icon {
-      position:absolute;
-      width:40px;
-      height:50px;
-      pointer-events; /* 고정, 드래그/클릭 불가 */
-      z-index:18;
+  .person-icon {
+    position:absolute;
+    width:40px;
+    height:50px;
+    pointer-events:auto; /* ← 드래그 되려면 auto */
+    cursor:move;
+    z-index:18;
+    }
+
     }
 
     .canvas-shape {
@@ -197,15 +200,31 @@ function positionPersonIcon() {
   const canvasRect = canvas.getBoundingClientRect();
 
   const personWidth = 40;
-  const personHeight = 30;
+  const personHeight = 50;
 
-  const left =
-    (compassRect.left - canvasRect.left) + (compassRect.width / 2) - (personWidth / 2);
+  let left = (compassRect.left - canvasRect.left) + (compassRect.width / 2) - (personWidth / 2);
+  let top = (compassRect.bottom - canvasRect.top) + 5;
 
-  const top = (compassRect.bottom - canvasRect.top) + 5; // 컴퍼스 아래 + 5px
+  // ⬇ GRID에 맞게 스냅
+  left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+  top = Math.round(top / GRID_SIZE) * GRID_SIZE;
 
   personIcon.style.left = left + "px";
   personIcon.style.top = top + "px";
+
+  // shapes 배열에도 추가 (drag 되도록)
+  shapes.push({
+    id: "person",
+    roomType: "Person",
+    label: "Person",
+    x: left,
+    y: top,
+    width: personWidth,
+    height: personHeight,
+    isPerson: true
+  });
+
+  attachMove(personIcon);
 }
 
 /* Others 선택 시 label 입력칸 보이기 */
