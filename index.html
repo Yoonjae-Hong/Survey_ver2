@@ -57,15 +57,13 @@
     .south { bottom:4px; left:50%; transform:translateX(-50%); }
     .west  { left:4px; top:50%; transform:translateY(-50%); }
 
-    /* Person icon */
+    /* Person icon (img only) */
     .person-icon {
+      position:absolute;
       width:40px;
       height:50px;
       cursor:move;
-      background:none !important;
-      border:none !important;
       z-index:18;
-      position:absolute;
       user-select:none;
     }
 
@@ -81,7 +79,6 @@
       user-select:none;
       padding:3px;
       text-align:center;
-      background:rgba(59,130,246,0.25); /* fallback */
     }
 
     .canvas-shape.selected { box-shadow:0 0 0 2px #1d4ed8; }
@@ -119,22 +116,18 @@
 
       <div id="labelContainer" style="display:none; margin-bottom:8px;">
         <label>Custom Label</label>
-        <input id="customLabelInput" type="text" placeholder="Enter custom name"
-               style="padding:4px; margin-top:4px; width:100%;">
+        <input id="customLabelInput" type="text" style="padding:4px; margin-top:4px; width:100%;">
       </div>
 
       <label>Width (1 grid unit = 60cm)</label>
-      <input id="customWidth" type="number" min="1" value="5"
-             style="padding:4px; margin-bottom:8px;">
+      <input id="customWidth" type="number" min="1" value="5" style="margin-bottom:8px;">
 
       <label>Length (1 grid unit = 60cm)</label>
-      <input id="customHeight" type="number" min="1" value="3"
-             style="padding:4px; margin-bottom:12px;">
+      <input id="customHeight" type="number" min="1" value="3" style="margin-bottom:12px;">
 
       <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
 
       <hr style="margin:16px 0;">
-
       <button id="clearCanvasBtn" class="btn">Clear Canvas</button>
       <button id="exportJsonBtn" class="btn btn-primary" style="margin-top:8px;">Save JSON + PNG</button>
     </section>
@@ -157,15 +150,12 @@
           <div class="west">W</div>
         </div>
 
-        <!-- Person Icon -->
-        <div id="personIcon" class="canvas-shape person-icon" data-id="person">
-          <img src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
-               style="width:100%; height:100%; object-fit:contain;">
-        </div>
+        <!-- Person icon (img only) -->
+        <img id="personIcon" class="person-icon"
+          src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png">
       </div>
 
-      <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
-
+      <textarea id="layoutOutput" readonly></textarea>
     </section>
   </main>
 </div>
@@ -173,11 +163,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-/* ====== GRID SETTINGS ====== */
 const GRID_SIZE = 18;
 const CM_PER_UNIT = 60;
 
-/* ⭐ 방 타입별 색상 (추가된 부분) */
 const ROOM_COLORS = {
   "Living Room":    "rgba(59,130,246,0.25)",
   "Kitchen":        "rgba(34,197,94,0.25)",
@@ -191,10 +179,10 @@ const ROOM_COLORS = {
 const canvas = document.getElementById("canvas");
 const compass = document.getElementById("compass");
 const personIcon = document.getElementById("personIcon");
+const output = document.getElementById("layoutOutput");
 
 const typeSelect = document.getElementById("customRoomType");
 const labelContainer = document.getElementById("labelContainer");
-const output = document.getElementById("layoutOutput");
 
 let shapes = [];
 let selectedId = null;
@@ -221,11 +209,8 @@ function placePersonIcon() {
   shapes.push({
     id: "person",
     roomType: "Person",
-    label: "Person",
-    x: left,
-    y: top,
-    width: 40,
-    height: 50,
+    x: left, y: top,
+    width: 40, height: 50,
     isPerson: true
   });
 
@@ -241,7 +226,7 @@ document.getElementById("addCustomRoomBtn").addEventListener("click", () => {
   const wUnits = +document.getElementById("customWidth").value;
   const hUnits = +document.getElementById("customHeight").value;
 
-  if (wUnits <= 0 || hUnits <= 0) { alert("Invalid size"); return; }
+  if (wUnits <= 0 || hUnits <= 0) return alert("Invalid size");
 
   const w = wUnits * GRID_SIZE;
   const h = hUnits * GRID_SIZE;
@@ -249,7 +234,7 @@ document.getElementById("addCustomRoomBtn").addEventListener("click", () => {
   let label = type;
   if (type === "Others") {
     label = document.getElementById("customLabelInput").value.trim();
-    if (!label) { alert("Enter label"); return; }
+    if (!label) return alert("Enter label");
   }
 
   const rect = canvas.getBoundingClientRect();
@@ -259,7 +244,6 @@ document.getElementById("addCustomRoomBtn").addEventListener("click", () => {
   addShape({ roomType:type, label:`${label} (${wUnits}×${hUnits})`, x, y, width:w, height:h });
 });
 
-/* Core function: Add shape (색상만 추가) */
 function addShape({ roomType, label, x, y, width, height }) {
   const id = "shape_" + shapeIdCounter++;
 
@@ -270,21 +254,16 @@ function addShape({ roomType, label, x, y, width, height }) {
   div.style.top = y+"px";
   div.style.width = width+"px";
   div.style.height = height+"px";
-
-  /* ⭐ 방 타입별 색상 적용 */
   div.style.background = ROOM_COLORS[roomType] || "rgba(59,130,246,0.25)";
-
   div.textContent = label;
 
   canvas.appendChild(div);
-
   shapes.push({ id, roomType, label, x, y, width, height });
 
   attachMove(div);
   updateJSON();
 }
 
-/* Drag logic */
 function attachMove(el) {
   el.addEventListener("mousedown", e => {
     selectedId = el.dataset.id;
@@ -352,9 +331,7 @@ function updateJSON() {
 document.getElementById("clearCanvasBtn").addEventListener("click", () => {
   if (!confirm("Clear all rooms?")) return;
   shapes = shapes.filter(s => s.isPerson);
-  [...canvas.querySelectorAll(".canvas-shape")].forEach(el => {
-    if (el.dataset.id !== "person") el.remove();
-  });
+  [...canvas.querySelectorAll(".canvas-shape")].forEach(el => el.remove());
   updateJSON();
 });
 
