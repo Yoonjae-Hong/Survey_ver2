@@ -36,10 +36,11 @@
       background:
         linear-gradient(#e0e0e0 1px, transparent 1px),
         linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-      background-size: 18px 18px;
+      background-size: 18px 18px; /* 정사각형 grid */
       overflow:hidden;
     }
 
+    /* Compass */
     .compass {
       position:absolute;
       top:10px; right:10px;
@@ -56,15 +57,19 @@
     .south { bottom:4px; left:50%; transform:translateX(-50%); }
     .west  { left:4px; top:50%; transform:translateY(-50%); }
 
+    /* Person icon (now a draggable div like other shapes) */
     .person-icon {
-      position:absolute;
       width:40px;
       height:50px;
-      pointer-events:auto;
       cursor:move;
+      background:none !important;
+      border:none !important;
       z-index:18;
+      position:absolute;
+      user-select:none;
     }
 
+    /* Room shapes */
     .canvas-shape {
       position:absolute;
       border:1px solid rgba(0,0,0,0.3);
@@ -90,6 +95,7 @@
 
 <body>
 <div class="app-container">
+
   <header class="header">
     <div class="header-title">Floorplan Design Tool</div>
   </header>
@@ -118,10 +124,12 @@
       </div>
 
       <label>Width (1 grid unit = 60cm)</label>
-      <input id="customWidth" type="number" min="1" value="5" style="padding:4px; margin-bottom:8px;">
+      <input id="customWidth" type="number" min="1" value="5"
+             style="padding:4px; margin-bottom:8px;">
 
       <label>Length (1 grid unit = 60cm)</label>
-      <input id="customHeight" type="number" min="1" value="3" style="padding:4px; margin-bottom:12px;">
+      <input id="customHeight" type="number" min="1" value="3"
+             style="padding:4px; margin-bottom:12px;">
 
       <button id="addCustomRoomBtn" class="btn btn-primary">Add Room</button>
 
@@ -150,9 +158,11 @@
           <div class="west">W</div>
         </div>
 
-        <!-- Person Icon -->
-        <img id="personIcon" class="person-icon"
-             src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png">
+        <!-- Person Icon (draggable div) -->
+        <div id="personIcon" class="canvas-shape person-icon" data-id="person">
+          <img src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png"
+               style="width:100%; height:100%; object-fit:contain;">
+        </div>
       </div>
 
       <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here"></textarea>
@@ -163,8 +173,9 @@
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 <script>
-/* GRID SETTINGS */
+/* ====== GRID SETTINGS ====== */
 const GRID_SIZE = 18;
 const CM_PER_UNIT = 60;
 
@@ -172,9 +183,6 @@ const canvas = document.getElementById("canvas");
 const compass = document.getElementById("compass");
 const personIcon = document.getElementById("personIcon");
 
-const addBtn = document.getElementById("addCustomRoomBtn");
-const clearBtn = document.getElementById("clearCanvasBtn");
-const saveBtn = document.getElementById("exportJsonBtn");
 const typeSelect = document.getElementById("customRoomType");
 const labelContainer = document.getElementById("labelContainer");
 const output = document.getElementById("layoutOutput");
@@ -183,28 +191,25 @@ let shapes = [];
 let selectedId = null;
 let shapeIdCounter = 1;
 
-/* INITIALIZE */
+/* On load: grid background + position person */
 window.onload = () => {
   canvas.style.backgroundSize = GRID_SIZE + "px " + GRID_SIZE + "px";
   placePersonIcon();
 };
 
-/* PERSON ICON – SNAP TO GRID BELOW COMPASS */
+/* Place person directly under compass, snapped to grid */
 function placePersonIcon() {
-  const cRect = compass.getBoundingClientRect();
-  const canvasRect = canvas.getBoundingClientRect();
+  const c = compass.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
 
-  const pw = 40;
-  const ph = 50;
-
-  let left = (cRect.left - canvasRect.left) + (cRect.width / 2) - pw / 2;
-  let top  = (cRect.bottom - canvasRect.top) + 5;
+  let left = (c.left - rect.left) + (c.width / 2) - 20;
+  let top = (c.bottom - rect.top) + 5;
 
   left = Math.round(left / GRID_SIZE) * GRID_SIZE;
-  top  = Math.round(top  / GRID_SIZE) * GRID_SIZE;
+  top  = Math.round(top / GRID_SIZE) * GRID_SIZE;
 
   personIcon.style.left = left + "px";
-  personIcon.style.top = top + "px";
+  personIcon.style.top  = top + "px";
 
   shapes.push({
     id: "person",
@@ -212,65 +217,54 @@ function placePersonIcon() {
     label: "Person",
     x: left,
     y: top,
-    width: pw,
-    height: ph,
+    width: 40,
+    height: 50,
     isPerson: true
   });
 
   attachMove(personIcon);
 }
 
-/* SHOW CUSTOM LABEL FIELD */
+/* Toggle custom label */
 typeSelect.addEventListener("change", () => {
   labelContainer.style.display = (typeSelect.value === "Others") ? "block" : "none";
 });
 
-/* ADD ROOM */
-addBtn.addEventListener("click", () => {
+/* Add room */
+document.getElementById("addCustomRoomBtn").addEventListener("click", () => {
   const type = typeSelect.value;
   const wUnits = +document.getElementById("customWidth").value;
   const hUnits = +document.getElementById("customHeight").value;
 
-  if (wUnits <= 0 || hUnits <= 0) {
-    alert("Size must be positive.");
-    return;
-  }
+  if (wUnits <= 0 || hUnits <= 0) { alert("Invalid size"); return; }
 
   const w = wUnits * GRID_SIZE;
   const h = hUnits * GRID_SIZE;
 
   let label = type;
   if (type === "Others") {
-    const custom = document.getElementById("customLabelInput").value.trim();
-    if (!custom) return alert("Enter custom label.");
-    label = custom;
+    label = document.getElementById("customLabelInput").value.trim();
+    if (!label) { alert("Enter label"); return; }
   }
 
   const rect = canvas.getBoundingClientRect();
-  const x = Math.round((rect.width / 2 - w / 2) / GRID_SIZE) * GRID_SIZE;
-  const y = Math.round((rect.height / 2 - h / 2) / GRID_SIZE) * GRID_SIZE;
+  const x = Math.round((rect.width/2 - w/2)/GRID_SIZE) * GRID_SIZE;
+  const y = Math.round((rect.height/2 - h/2)/GRID_SIZE) * GRID_SIZE;
 
-  addShape({
-    roomType: type,
-    label: `${label} (${wUnits}×${hUnits})`,
-    x,
-    y,
-    width: w,
-    height: h
-  });
+  addShape({ roomType:type, label:`${label} (${wUnits}×${hUnits})`, x, y, width:w, height:h });
 });
 
-/* INSERT SHAPE INTO CANVAS */
+/* Core function: Add shape */
 function addShape({ roomType, label, x, y, width, height }) {
   const id = "shape_" + shapeIdCounter++;
 
   const div = document.createElement("div");
   div.className = "canvas-shape";
   div.dataset.id = id;
-  div.style.left = x + "px";
-  div.style.top = y + "px";
-  div.style.width = width + "px";
-  div.style.height = height + "px";
+  div.style.left = x+"px";
+  div.style.top = y+"px";
+  div.style.width = width+"px";
+  div.style.height = height+"px";
   div.textContent = label;
 
   canvas.appendChild(div);
@@ -281,31 +275,28 @@ function addShape({ roomType, label, x, y, width, height }) {
   updateJSON();
 }
 
-/* DRAGGING */
+/* Drag logic (shared by person + rooms) */
 function attachMove(el) {
-  el.addEventListener("mousedown", (e) => {
+  el.addEventListener("mousedown", e => {
     selectedId = el.dataset.id;
 
     const startX = e.clientX;
     const startY = e.clientY;
-    const initialLeft = parseFloat(el.style.left);
-    const initialTop  = parseFloat(el.style.top);
+    const initX = parseFloat(el.style.left);
+    const initY = parseFloat(el.style.top);
 
     function move(ev) {
-      let nx = initialLeft + (ev.clientX - startX);
-      let ny = initialTop  + (ev.clientY - startY);
+      let nx = initX + (ev.clientX - startX);
+      let ny = initY + (ev.clientY - startY);
 
       nx = Math.round(nx / GRID_SIZE) * GRID_SIZE;
       ny = Math.round(ny / GRID_SIZE) * GRID_SIZE;
 
       el.style.left = nx + "px";
-      el.style.top  = ny + "px";
+      el.style.top = ny + "px";
 
       const s = shapes.find(o => o.id === selectedId);
-      if (s) {
-        s.x = nx;
-        s.y = ny;
-      }
+      if (s) { s.x = nx; s.y = ny; }
 
       updateJSON();
     }
@@ -320,25 +311,25 @@ function attachMove(el) {
   });
 }
 
-/* DELETE ROOM (PERSON CANNOT BE DELETED) */
-document.addEventListener("keydown", (e) => {
+/* Delete room (NOT person) */
+document.addEventListener("keydown", e => {
   if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-    const target = shapes.find(s => s.id === selectedId);
-    if (target?.isPerson) return; // DO NOT DELETE PERSON
+    const s = shapes.find(o => o.id === selectedId);
+    if (s?.isPerson) return; // prevent delete person
 
     const el = canvas.querySelector(`[data-id="${selectedId}"]`);
     el?.remove();
-
-    shapes = shapes.filter(s => s.id !== selectedId);
+    shapes = shapes.filter(o => o.id !== selectedId);
     selectedId = null;
     updateJSON();
   }
 });
 
-/* JSON EXPORT */
+/* JSON Export */
 function updateJSON() {
-  const result = shapes.map(s => {
-    return {
+  const result = shapes
+    .filter(s => !s.isPerson) // person 제외
+    .map(s => ({
       id: s.id,
       roomType: s.roomType,
       label: s.label,
@@ -346,31 +337,29 @@ function updateJSON() {
       y: (s.y / GRID_SIZE) * CM_PER_UNIT,
       width: (s.width / GRID_SIZE) * CM_PER_UNIT,
       height: (s.height / GRID_SIZE) * CM_PER_UNIT
-    };
-  });
+    }));
 
   output.value = JSON.stringify(result, null, 2);
 }
 
-/* CLEAR ALL ROOMS */
-clearBtn.addEventListener("click", () => {
+/* Clear canvas (keep person + compass) */
+document.getElementById("clearCanvasBtn").addEventListener("click", () => {
   if (!confirm("Clear all rooms?")) return;
-
-  shapes = shapes.filter(s => s.isPerson); // keep only person
-
-  [...canvas.querySelectorAll(".canvas-shape")].forEach(el => el.remove());
+  shapes = shapes.filter(s => s.isPerson);
+  [...canvas.querySelectorAll(".canvas-shape")].forEach(el => {
+    if (el.dataset.id !== "person") el.remove();
+  });
   updateJSON();
 });
 
-/* SAVE JSON + PNG */
-saveBtn.addEventListener("click", async () => {
+/* Export JSON + PNG */
+document.getElementById("exportJsonBtn").addEventListener("click", async () => {
   const blob = new Blob([output.value], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = "layout.json";
   a.click();
-  URL.revokeObjectURL(url);
 
   const screenshot = await html2canvas(canvas, { backgroundColor:null, scale:2 });
   screenshot.toBlob((imgBlob) => {
@@ -379,13 +368,9 @@ saveBtn.addEventListener("click", async () => {
     a2.href = pngUrl;
     a2.download = "layout.png";
     a2.click();
-    URL.revokeObjectURL(pngUrl);
   });
-
-  alert("Saved JSON + PNG");
 });
 </script>
+
 </body>
 </html>
-
-
