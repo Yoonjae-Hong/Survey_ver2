@@ -1,352 +1,527 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Floorplan Tool</title>
+  <meta charset="UTF-8" />
+  <title>Drag-and-Drop Floorplan Experiment Tool</title>
 
-<style>
-  :root {
-    /* 방 타입별 메인 색상 (단 1곳만 수정하면 모든 UI에 반영됨) */
-    --color-Living-room: #3B82F6;
-    --color-Kitchen: #22C55E;
-    --color-Bedroom: #8B5CF6;
-    --color-Bathroom: #EF4444;
-    --color-Storage: #FACC15;
-    --color-Balcony: #F97316;
-  }
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-  * {
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f5f7;
+      color: #222;
+    }
 
-  body {
-    margin: 0;
-    background: #f5f5f7;
-    color: #222;
-  }
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
-  .app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
+    /* Header */
+    .header {
+      padding: 12px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
 
-  .header {
-    padding: 12px 20px;
-    background: white;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
+    .header-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
 
-  .header-title { font-size: 18px; font-weight: 600; }
-  .header-subtitle { font-size: 13px; color: #666; }
+    .header-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
 
-  .main {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 12px;
-    padding: 12px;
-  }
+    .header-right {
+      font-size: 12px;
+      color: #777;
+    }
 
-  .panel {
-    background: white;
-    border-radius: 14px;
-    padding: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-  }
+    /* Main layout */
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
 
-  .palette-list {
-    margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-y: auto;
-  }
+    /* Panel */
+    .panel {
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
 
-  .palette-section-title {
-    margin-top: 12px;
-    margin-bottom: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #555;
-  }
+    .panel-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-  /* ------------------------------
-     🎨 팔레트 색상 자동 적용 로직
-     ------------------------------ */
-  .shape-item {
-    padding: 8px;
-    border-radius: 10px;
-    border: 1px solid #e0e0e0;
-    background: #fafafa;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    cursor: grab;
-  }
+    .panel-subtext {
+      font-size: 11px;
+      color: #777;
+      margin-bottom: 10px;
+    }
 
-  .shape-preview {
-    min-width: 40px;
-    min-height: 30px;
-    border-radius: 4px;
-    border: 2px solid #ccc;
-    font-size: 11px;
-    color: #444;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-  }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      font-size: 10px;
+      color: #555;
+      gap: 4px;
+    }
 
-  /* ⭐ 자동 색상 매핑 (기본 구조 유지, 코드 매우 짧음) */
-  .shape-item[data-room-type] {
-    background: color-mix(in srgb, var(--color-attr), 12%);
-  }
+    .tag-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #888;
+    }
 
-  .shape-item[data-room-type] .shape-preview {
-    border-color: var(--color-attr);
-    color: var(--color-attr);
-  }
+    /* Palette */
+    .palette-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
 
-  /* 각 타입에서 CSS 변수 var(--color-attr) 바인딩 */
-  .shape-item[data-room-type="Living room"] { --color-attr: var(--color-Living-room); }
-  .shape-item[data-room-type="Kitchen"]     { --color-attr: var(--color-Kitchen); }
-  .shape-item[data-room-type="Bedroom"]     { --color-attr: var(--color-Bedroom); }
-  .shape-item[data-room-type="Bathroom"]    { --color-attr: var(--color-Bathroom); }
-  .shape-item[data-room-type="Storage"]     { --color-attr: var(--color-Storage); }
-  .shape-item[data-room-type="Balcony"]     { --color-attr: var(--color-Balcony); }
+    .palette-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
 
-  /* 캔버스 */
-  .canvas {
-    flex: 1;
-    position: relative;
-    background:
-      linear-gradient(#e0e0e0 1px, transparent 1px),
-      linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
-    background-size: 20px 20px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    overflow: hidden;
-  }
+    .shape-item {
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      padding: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      cursor: grab;
+      background: #fafafa;
+      transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    }
 
-  .canvas-drop-hint {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #999;
-    pointer-events: none;
-  }
+    .shape-item:hover {
+      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+      transform: translateY(-1px);
+      background: #fdfdfd;
+    }
 
-  .canvas-shape {
-    position: absolute;
-    border: 1px solid rgba(0,0,0,0.25);
-    border-radius: 4px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 11px;
-    padding: 4px;
-    cursor: move;
-  }
+    .shape-preview {
+      min-width: 40px;
+      min-height: 30px;
+      border-radius: 0px;
+      border: 1px dashed #bbb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #666;
+      font-weight: 600;
+    }
 
-  .canvas-shape.selected {
-    outline: 2px solid #1d4ed8;
-  }
+    .shape-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
 
-  textarea {
-    width: 100%;
-    height: 120px;
-    resize: vertical;
-    font-size: 11px;
-    margin-top: 8px;
-    padding: 6px;
-  }
-</style>
+    .shape-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* ============================================
+       🎨 PALETTE COLORS
+       ============================================ */
+
+    /* Living room */
+    .shape-item[data-room-type="Living room"] { background: #EFF6FF; }
+    .shape-item[data-room-type="Living room"] .shape-preview {
+      border-color: #3B82F6;
+      color: #3B82F6;
+    }
+
+    /* Kitchen */
+    .shape-item[data-room-type="Kitchen"] { background: #ECFDF5; }
+    .shape-item[data-room-type="Kitchen"] .shape-preview {
+      border-color: #22C55E;
+      color: #22C55E;
+    }
+
+    /* Bedroom */
+    .shape-item[data-room-type="Bedroom"] { background: #F5F3FF; }
+    .shape-item[data-room-type="Bedroom"] .shape-preview {
+      border-color: #8B5CF6;
+      color: #8B5CF6;
+    }
+
+    /* Bathroom */
+    .shape-item[data-room-type="Bathroom"] { background: #FEF2F2; }
+    .shape-item[data-room-type="Bathroom"] .shape-preview {
+      border-color: #EF4444;
+      color: #EF4444;
+    }
+
+    /* Storage */
+    .shape-item[data-room-type="Storage"] { background: #FEFCE8; }
+    .shape-item[data-room-type="Storage"] .shape-preview {
+      border-color: #FACC15;
+      color: #FACC15;
+    }
+
+    /* Balcony */
+    .shape-item[data-room-type="Balcony"] { background: #FFF7ED; }
+    .shape-item[data-room-type="Balcony"] .shape-preview {
+      border-color: #F97316;
+      color: #F97316;
+    }
+
+    /* Canvas */
+    .canvas-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .canvas {
+      position: relative;
+      flex: 1;
+      min-height: 360px;
+      border-radius: 0px;
+      background:
+        linear-gradient(#e0e0e0 1px, transparent 1px),
+        linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-position: 0 0;
+      border: 1px solid #ccc;
+      overflow: hidden;
+    }
+
+    .canvas-drop-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+      padding: 0 24px;
+    }
+
+    .canvas-shape {
+      position: absolute;
+      border-radius: 0px;
+      background: rgba(59,130,246,0.12);
+      border: 1px solid rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      padding: 4px;
+      cursor: move;
+      user-select: none;
+    }
+
+    .canvas-shape.selected {
+      box-shadow: 0 0 0 2px #1d4ed8;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+      font-size: 11px;
+      padding: 6px;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 
 <body>
 <div class="app-container">
 
-<header class="header">
-  <div>
-    <div class="header-title">Floorplan Arrangement Experiment Tool</div>
-    <div class="header-subtitle">Drag items to the canvas. Press Delete to remove.</div>
-  </div>
-</header>
-
-<main class="main">
-  <!-- PALETTE -->
-  <section class="panel">
-    <div class="palette-section-title">Living Room</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Living room" data-width="120" data-height="80">
-      <div class="shape-preview">LR S</div>
-      <div>Living room – Small</div>
+  <header class="header">
+    <div>
+      <div class="header-title">Floorplan Arrangement Experiment Tool</div>
+      <div class="header-subtitle">Drag room tiles from the left palette and drop them onto the canvas.</div>
     </div>
+  </header>
 
-    <div class="palette-section-title">Kitchen</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Kitchen" data-width="100" data-height="70">
-      <div class="shape-preview">K S</div>
-      <div>Kitchen – Small</div>
-    </div>
+  <main class="main">
+    <!-- Palette -->
+    <section class="panel">
+      <div class="panel-header">
+        <span>Room Type Palette</span>
+      </div>
 
-    <div class="palette-section-title">Bedroom</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Bedroom" data-width="110" data-height="70">
-      <div class="shape-preview">BR S</div>
-      <div>Bedroom – Small</div>
-    </div>
+      <div class="palette-list" id="palette">
 
-    <div class="palette-section-title">Bathroom</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Bathroom" data-width="60" data-height="50">
-      <div class="shape-preview">BA S</div>
-      <div>Bathroom – Small</div>
-    </div>
+        <!-- LIVING ROOM -->
+        <div class="palette-section-title">Living Room</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Living room" data-size="Small"
+             data-label="Living room – Small" data-width="120" data-height="80">
+          <div class="shape-preview">LR S</div>
+          <div class="shape-meta"><div class="shape-name">Living room – Small</div></div>
+        </div>
 
-    <div class="palette-section-title">Storage</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Storage" data-width="50" data-height="50">
-      <div class="shape-preview">ST S</div>
-      <div>Storage – Small</div>
-    </div>
+        <!-- KITCHEN -->
+        <div class="palette-section-title">Kitchen</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Kitchen" data-size="Small"
+             data-label="Kitchen – Small" data-width="100" data-height="70">
+          <div class="shape-preview">K S</div>
+          <div class="shape-meta"><div class="shape-name">Kitchen – Small</div></div>
+        </div>
 
-    <div class="palette-section-title">Balcony</div>
-    <div class="shape-item" draggable="true"
-         data-room-type="Balcony" data-width="80" data-height="40">
-      <div class="shape-preview">BL S</div>
-      <div>Balcony – Small</div>
-    </div>
-  </section>
+        <!-- BEDROOM -->
+        <div class="palette-section-title">Bedroom</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Bedroom" data-size="Small"
+             data-label="Bedroom – Small" data-width="110" data-height="70">
+          <div class="shape-preview">BR S</div>
+          <div class="shape-meta"><div class="shape-name">Bedroom – Small</div></div>
+        </div>
 
-  <!-- CANVAS -->
-  <section class="panel canvas-wrapper">
-    <div class="canvas" id="canvas">
-      <div class="canvas-drop-hint" id="dropHint">Drop items here</div>
-    </div>
+        <!-- BATHROOM -->
+        <div class="palette-section-title">Bathroom</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Bathroom" data-size="Small"
+             data-label="Bathroom – Small" data-width="60" data-height="50">
+          <div class="shape-preview">BA S</div>
+          <div class="shape-meta"><div class="shape-name">Bathroom – Small</div></div>
+        </div>
 
-    <textarea id="layoutOutput" readonly></textarea>
-  </section>
-</main>
+        <!-- STORAGE -->
+        <div class="palette-section-title">Storage</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Storage" data-size="Small"
+             data-label="Storage – Small" data-width="50" data-height="50">
+          <div class="shape-preview">ST S</div>
+          <div class="shape-meta"><div class="shape-name">Storage – Small</div></div>
+        </div>
+
+        <!-- BALCONY -->
+        <div class="palette-section-title">Balcony</div>
+        <div class="shape-item" draggable="true"
+             data-room-type="Balcony" data-size="Small"
+             data-label="Balcony – Small" data-width="80" data-height="40">
+          <div class="shape-preview">BL S</div>
+          <div class="shape-meta"><div class="shape-name">Balcony – Small</div></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Canvas -->
+    <section class="panel canvas-wrapper">
+      <div class="canvas" id="canvas">
+        <div class="canvas-drop-hint" id="dropHint">Drop room tiles here</div>
+      </div>
+
+      <textarea id="layoutOutput" readonly placeholder="Layout JSON will appear here..."></textarea>
+    </section>
+  </main>
 </div>
 
+<!-- html2canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-const GRID_SIZE = 10;
-const ROOM_COLORS = {
-  "Living room": "rgba(59,130,246,0.25)",
-  "Kitchen":     "rgba(34,197,94,0.25)",
-  "Bedroom":     "rgba(139,92,246,0.25)",
-  "Bathroom":    "rgba(239,68,68,0.25)",
-  "Storage":     "rgba(250,204,21,0.25)",
-  "Balcony":     "rgba(249,115,22,0.25)"
-};
+  const GRID_SIZE = 10;
 
-const canvas = document.getElementById("canvas");
-const dropHint = document.getElementById("dropHint");
-const layoutOutput = document.getElementById("layoutOutput");
-
-let shapes = [];
-let dragged = null;
-let idCount = 1;
-
-/* -------- Palette drag start -------- */
-document.addEventListener("dragstart", (e) => {
-  const item = e.target.closest(".shape-item");
-  if (!item) return;
-
-  dragged = {
-    roomType: item.dataset.roomType,
-    width: parseInt(item.dataset.width),
-    height: parseInt(item.dataset.height)
+  const ROOM_COLORS = {
+    "Living room": "rgba(59,130,246,0.25)",
+    "Kitchen": "rgba(34,197,94,0.25)",
+    "Bedroom": "rgba(139,92,246,0.25)",
+    "Bathroom": "rgba(239,68,68,0.25)",
+    "Storage": "rgba(250,204,21,0.25)",
+    "Balcony": "rgba(249,115,22,0.25)"
   };
-});
 
-/* -------- Canvas drop -------- */
-canvas.addEventListener("dragover", (e) => e.preventDefault());
-canvas.addEventListener("drop", (e) => {
-  if (!dragged) return;
+  const canvas = document.getElementById('canvas');
+  const palette = document.getElementById('palette');
+  const dropHint = document.getElementById('dropHint');
+  const layoutOutput = document.getElementById('layoutOutput');
 
-  const rect = canvas.getBoundingClientRect();
-  let x = e.clientX - rect.left - dragged.width/2;
-  let y = e.clientY - rect.top - dragged.height/2;
-  x = Math.round(x/GRID_SIZE)*GRID_SIZE;
-  y = Math.round(y/GRID_SIZE)*GRID_SIZE;
+  let draggedShapeData = null;
+  let shapesOnCanvas = [];
+  let shapeIdCounter = 1;
+  let selectedShapeId = null;
 
-  createShape(dragged.roomType, x, y, dragged.width, dragged.height);
-  dragged = null;
-});
+  /* Palette drag */
+  palette.addEventListener('dragstart', (e) => {
+    const item = e.target.closest('.shape-item');
+    if (!item) return;
 
-/* -------- Shape Creation -------- */
-function createShape(type, x, y, w, h) {
-  dropHint.style.display = "none";
+    draggedShapeData = {
+      roomType: item.dataset.roomType,
+      size: item.dataset.size,
+      label: item.dataset.label,
+      width: parseInt(item.dataset.width),
+      height: parseInt(item.dataset.height)
+    };
+  });
 
-  const el = document.createElement("div");
-  const id = "shape_" + idCount++;
+  palette.addEventListener('dragend', () => draggedShapeData = null);
 
-  el.className = "canvas-shape";
-  el.dataset.id = id;
-  el.style.background = ROOM_COLORS[type];
-  el.style.left = x + "px";
-  el.style.top = y + "px";
-  el.style.width = w + "px";
-  el.style.height = h + "px";
-  el.innerHTML = `<b>${type}</b>`;
+  /* Canvas drop */
+  canvas.addEventListener('dragover', (e) => e.preventDefault());
+  canvas.addEventListener('drop', (e) => {
+    if (!draggedShapeData) return;
 
-  canvas.appendChild(el);
-  shapes.push({ id, type, x, y, w, h });
+    const rect = canvas.getBoundingClientRect();
+    let x = e.clientX - rect.left - draggedShapeData.width / 2;
+    let y = e.clientY - rect.top - draggedShapeData.height / 2;
 
-  addDragMove(el);
-  updateJSON();
-}
+    x = Math.round(x / GRID_SIZE) * GRID_SIZE;
+    y = Math.round(y / GRID_SIZE) * GRID_SIZE;
 
-/* -------- Drag Move -------- */
-function addDragMove(el) {
-  el.addEventListener("mousedown", (e) => {
+    addShapeToCanvas({ ...draggedShapeData, x, y });
+    draggedShapeData = null;
+  });
+
+  /* Add shape */
+  function addShapeToCanvas({ roomType, size, label, x, y, width, height }) {
+    dropHint.style.display = "none";
+
+    const id = "shape_" + shapeIdCounter++;
+    const shapeEl = document.createElement("div");
+    shapeEl.className = "canvas-shape";
+
+    shapeEl.style.background = ROOM_COLORS[roomType];
+    shapeEl.style.left = x + "px";
+    shapeEl.style.top = y + "px";
+    shapeEl.style.width = width + "px";
+    shapeEl.style.height = height + "px";
+    shapeEl.dataset.id = id;
+
+    shapeEl.innerHTML = `<b>${roomType}</b><br>${size}`;
+    canvas.appendChild(shapeEl);
+
+    shapesOnCanvas.push({ id, roomType, size, label, x, y, width, height });
+
+    attachShapeEvents(shapeEl);
+    updateJsonOutput();
+  }
+
+  /* Move + select */
+  function attachShapeEvents(shapeEl) {
+    shapeEl.addEventListener("mousedown", onShapeMouseDown);
+    shapeEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectShape(shapeEl.dataset.id);
+    });
+  }
+
+  canvas.addEventListener("mousedown", (e) => selectShape(null));
+
+  function selectShape(id) {
+    selectedShapeId = id;
+    document.querySelectorAll(".canvas-shape").forEach((el) =>
+      el.classList.toggle("selected", el.dataset.id === id)
+    );
+  }
+
+  /* Delete key */
+  document.addEventListener("keydown", (e) => {
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedShapeId) {
+      deleteShape(selectedShapeId);
+      selectedShapeId = null;
+    }
+  });
+
+  function deleteShape(id) {
+    const el = canvas.querySelector(`[data-id="${id}"]`);
+    el?.remove();
+    shapesOnCanvas = shapesOnCanvas.filter((s) => s.id !== id);
+
+    if (shapesOnCanvas.length === 0) dropHint.style.display = "flex";
+    updateJsonOutput();
+  }
+
+  /* Drag move */
+  function onShapeMouseDown(e) {
+    const shapeEl = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
     const startX = e.clientX;
     const startY = e.clientY;
-    const baseX = parseInt(el.style.left);
-    const baseY = parseInt(el.style.top);
+    const initialLeft = parseInt(shapeEl.style.left);
+    const initialTop = parseInt(shapeEl.style.top);
 
-    function move(ev) {
-      let nx = baseX + (ev.clientX - startX);
-      let ny = baseY + (ev.clientY - startY);
-      nx = Math.round(nx/GRID_SIZE)*GRID_SIZE;
-      ny = Math.round(ny/GRID_SIZE)*GRID_SIZE;
+    function onMouseMove(ev) {
+      let newX = initialLeft + (ev.clientX - startX);
+      let newY = initialTop + (ev.clientY - startY);
 
-      el.style.left = nx+"px";
-      el.style.top  = ny+"px";
+      newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
+      newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
-      const s = shapes.find(s => s.id === el.dataset.id);
-      s.x = nx; s.y = ny;
-      updateJSON();
+      newX = Math.max(0, Math.min(newX, rect.width - shapeEl.offsetWidth));
+      newY = Math.max(0, Math.min(newY, rect.height - shapeEl.offsetHeight));
+
+      shapeEl.style.left = newX + "px";
+      shapeEl.style.top = newY + "px";
+
+      const id = shapeEl.dataset.id;
+      const s = shapesOnCanvas.find((s) => s.id === id);
+      s.x = newX;
+      s.y = newY;
+
+      updateJsonOutput();
     }
 
-    function up() {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
     }
 
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  });
-}
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
 
-/* -------- JSON Output -------- */
-function updateJSON() {
-  layoutOutput.value = JSON.stringify(shapes, null, 2);
-}
+  /* JSON output */
+  function updateJsonOutput() {
+    layoutOutput.value = JSON.stringify(shapesOnCanvas, null, 2);
+  }
 </script>
 
 </body>
 </html>
+
