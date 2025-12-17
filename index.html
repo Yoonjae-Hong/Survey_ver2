@@ -182,7 +182,6 @@
           <option>Master Bedroom</option>
           <option>Guest Bedroom</option>
           <option>Bathroom</option>
-          <option>Storage</option>
           <option value="Others">Others</option>
         </select>
         <div id="labelContainer" style="display:none; margin-bottom:8px;">
@@ -204,7 +203,7 @@
         <div class="instruction-bar">
           <b>Instruction:</b><br>
           Based on your current living situation, design your ideal house floor plan and describe it in the <b>Notes</b> section.<br>
-          <b>Add and drag</b> rooms to arrange the layout, and press <b>Delete</b> to remove a room.<br>
+          Add and drag rooms to arrange the layout, and press <b>Delete</b> to remove a room.<br>
           Press <b>Save</b> to download all files (<b>PNG</b>, <b>JSON</b>, and <b>TEXT</b>), then upload them to the survey.
         </div>
         <div class="canvas" id="canvas">
@@ -389,9 +388,17 @@
     });
 
     document.getElementById("exportJsonBtn").addEventListener("click", async () => {
+      // Get notes text
+      const notesText = document.getElementById("notesArea").value;
+      
+      // Debug: Check if notes text exists
+      if (!notesText || notesText.trim() === "") {
+        alert("Warning: Notes section is empty. Please enter your description before saving.");
+        return;
+      }
+      
       // Save JSON with notes
       const layoutData = JSON.parse(output.value);
-      const notesText = document.getElementById("notesArea").value;
       const fullData = {
         layout: layoutData,
         notes: notesText
@@ -414,13 +421,16 @@
         a2.click();
       });
 
-      // Save notes as TXT
-      const notesBlob = new Blob([notesText], { type:"text/plain" });
+      // Save notes as TXT (with BOM for Windows compatibility)
+      const BOM = '\uFEFF';
+      const notesBlob = new Blob([BOM + notesText], { type:"text/plain;charset=utf-8" });
       const notesUrl = URL.createObjectURL(notesBlob);
       const a3 = document.createElement("a");
       a3.href = notesUrl;
       a3.download = "notes.txt";
       a3.click();
+      
+      alert("All files saved successfully!");
     });
   </script>
 </body>
