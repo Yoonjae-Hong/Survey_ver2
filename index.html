@@ -200,9 +200,10 @@
 
       <!-- CENTER PANEL -->
       <section class="panel canvas-wrapper">
-        <b>Instruction:</b><br>
+        <div class="instruction-bar">
+          <b>Instruction:</b><br>
           Based on your current living situation, design your ideal house floor plan and describe it in the <b>Notes</b> section.<br>
-          Add and drag rooms to arrange the layout, and press <b>Delete</b> to remove a room.<br>
+          <b>Add and drag</b> rooms to arrange the layout, and press <b>Delete</b> to remove a room.<br>
           Press <b>Save</b> to download all files (<b>PNG</b>, <b>JSON</b>, and <b>TEXT</b>), then upload them to the survey.
         </div>
         <div class="canvas" id="canvas">
@@ -221,7 +222,7 @@
       <section class="panel" style="display:flex; flex-direction:column;">
         <h3 style="margin:4px 0 10px 0;">Notes</h3>
         <div class="notes-instruction">
-          Please describe the layout of your floorplan. We are interested in how rooms are arranged—such as room types, sizes, adjacencies, and orientations—rather than interior decoration or style. (150–250 words)
+          Based on your current living situation, please describe the layout of your ideal one-story home. We are interested in how rooms are arranged—such as room types, sizes, adjacencies, and orientations—rather than interior decoration or style. (150–250 words)
         </div>
         <textarea id="notesArea" placeholder="Enter text here" style="flex:1; height:auto; min-height:300px; resize:none;"></textarea>
       </section>
