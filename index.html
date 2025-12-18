@@ -9,24 +9,29 @@
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
 body {
   margin: 0;
   background:#f5f5f7;
 }
+
 .app-container {
   display:flex;
   flex-direction:column;
   height:100vh;
 }
+
 .header {
   padding:12px 20px;
   background:#fff;
   border-bottom:1px solid #ddd;
 }
+
 .header-title {
   font-size:18px;
   font-weight:600;
 }
+
 .main {
   flex:1;
   display:grid;
@@ -35,50 +40,82 @@ body {
   padding:12px;
   overflow:hidden;
 }
+
 .panel {
   background:#fff;
   border-radius:14px;
-  padding:12px;
+  padding:14px;
   box-shadow:0 2px 6px rgba(0,0,0,0.04);
   display:flex;
   flex-direction:column;
   overflow-y:auto;
 }
 
-/* ✅ INPUT SPACING IMPROVEMENT */
-.panel label {
-  margin-top: 10px;
-  margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-.panel select,
-.panel input[type="number"],
-.panel input[type="text"] {
-  margin-bottom: 12px;
+/* ---------- LEFT PANEL (Room Form) ---------- */
+.room-form h3 {
+  font-size:16px;
+  font-weight:600;
+  margin-bottom:16px;
+  color:#111;
 }
 
-/* ✅ BUTTON SPACING */
-.panel .btn {
-  margin-top: 8px;
+.room-form label {
+  font-size:13px;
+  font-weight:500;
+  color:#111;
+  margin-bottom:6px;
 }
 
+.room-form select,
+.room-form input[type="number"],
+.room-form input[type="text"] {
+  width:100%;
+  padding:10px 12px;
+  font-size:14px;
+  border:1px solid #dcdcdc;
+  border-radius:8px;
+  margin-bottom:18px;
+}
+
+.room-form select:focus,
+.room-form input:focus {
+  outline:none;
+  border-color:#2563eb;
+}
+
+.btn {
+  padding:8px 10px;
+  border-radius:6px;
+  font-size:13px;
+  cursor:pointer;
+  border:1px solid #ccc;
+  background:#fff;
+}
+
+.btn-primary {
+  background:#2563eb;
+  color:#fff;
+  border-color:#2563eb;
+}
+
+/* ---------- CENTER ---------- */
 .instruction-bar {
   font-size:13px;
   color:#000;
-  background:#f5f5f5;
+  background:#f3f3f3;
   padding:10px 12px;
   border-radius:8px;
-  border:1px solid #ccc;
+  border:1px solid #ddd;
   margin-bottom:10px;
-  line-height:1.5;
 }
+
 .instruction-bar ul {
-  padding-left:18px;
-  margin:6px 0 0 0;
+  margin:6px 0 0 18px;
+  padding:0;
 }
+
 .instruction-bar li {
-  margin-bottom:4px;
+  margin-bottom:6px;
 }
 
 .canvas {
@@ -92,6 +129,7 @@ body {
   background-size:15px 15px;
   overflow:hidden;
 }
+
 .compass {
   position:absolute;
   top:10px;
@@ -103,11 +141,13 @@ body {
   border:2px solid #555;
   z-index:20;
 }
+
 .compass div {
   position:absolute;
   font-weight:700;
   font-size:13px;
 }
+
 .north { top:4px; left:50%; transform:translateX(-50%); }
 .east  { right:4px; top:50%; transform:translateY(-50%); }
 .south { bottom:4px; left:50%; transform:translateX(-50%); }
@@ -135,45 +175,32 @@ body {
   text-align:center;
 }
 
-.btn {
-  padding:6px 10px;
-  border-radius:6px;
-  font-size:12px;
-  cursor:pointer;
-  border:1px solid #ccc;
-  background:#fff;
+.canvas-shape.selected {
+  box-shadow:0 0 0 2px #2563eb;
 }
-.btn-primary {
-  background:#2563eb;
-  color:#fff;
-  border-color:#2563eb;
+
+/* ---------- RIGHT (Notes) ---------- */
+.notes-instruction {
+  font-size:14px;
+  font-weight:600;
+  color:#000;
+  line-height:1.6;
+  margin-bottom:10px;
 }
 
 textarea {
   width:100%;
-  padding:6px;
-  font-size:11px;
+  padding:8px;
+  font-size:12px;
   border-radius:8px;
   border:1px solid #ddd;
-}
-
-/* ✅ TEXT INSTRUCTION – BLACK & BOLD */
-.notes-instruction {
-  font-size: 13px;
-  color: #000;
-  font-weight: 600;
-  line-height: 1.5;
-  background: #f9f9f9;
-  border: 1px solid #d0d0d0;
-  border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 10px;
 }
 </style>
 </head>
 
 <body>
 <div class="app-container">
+
 <header class="header">
   <div class="header-title">Floorplan Design Tool</div>
 </header>
@@ -181,7 +208,7 @@ textarea {
 <main class="main">
 
 <!-- LEFT PANEL -->
-<section class="panel">
+<section class="panel room-form">
   <h3>Create Room</h3>
 
   <label>Room Type</label>
@@ -197,30 +224,30 @@ textarea {
 
   <div id="labelContainer" style="display:none;">
     <label>Custom Label</label>
-    <input id="customLabelInput" type="text">
+    <input id="customLabelInput" type="text" placeholder="Enter room name">
   </div>
 
-  <label>Width (grid)</label>
-  <input id="customWidth" type="number" value="10" min="1">
+  <label>Width (1 unit = 1m)</label>
+  <input id="customWidth" type="number" min="1" value="10">
 
-  <label>Height (grid)</label>
-  <input id="customHeight" type="number" value="8" min="1">
+  <label>Length (1 unit = 1m)</label>
+  <input id="customHeight" type="number" min="1" value="8">
 
   <button id="addRoomBtn" class="btn btn-primary">Add Room</button>
   <hr>
+
   <button id="clearBtn" class="btn">Clear Canvas</button>
-  <button id="saveBtn" class="btn btn-primary">Save All</button>
+  <button id="saveBtn" class="btn btn-primary" style="margin-top:6px;">Save All</button>
 </section>
 
-<!-- CENTER PANEL -->
+<!-- CENTER -->
 <section class="panel">
   <div class="instruction-bar">
     <b>Instruction</b>
     <ul>
-      <li>Add and drag rooms to design your ideal one-story home.</li>
-      <li>Drag the person icon freely to represent your position.</li>
-      <li>Press <b>Delete</b> to remove rooms.</li>
-      <li>Describe your floor plan in the text panel on the right.</li>
+      <li>Add rooms and drag them to design your ideal floor plan.</li>
+      <li>Press <b>Delete</b> to remove a room.</li>
+      <li>Describe your layout in the text panel on the right.</li>
       <li>Press <b>Save All</b> to download PNG, JSON, and TXT files.</li>
     </ul>
   </div>
@@ -232,6 +259,7 @@ textarea {
       <div class="south">S</div>
       <div class="west">W</div>
     </div>
+
     <img id="personIcon" class="person-icon"
       src="https://raw.githubusercontent.com/Yoonjae-Hong/Survey_ver2/76437d43f2a49ee041422c151b7c6ec6c5576320/Assets/person.png">
   </div>
@@ -239,19 +267,18 @@ textarea {
   <textarea id="jsonOutput" readonly></textarea>
 </section>
 
-<!-- RIGHT PANEL -->
+<!-- RIGHT -->
 <section class="panel">
   <h3>Text</h3>
   <div class="notes-instruction">
     Please describe the layout of your ideal one-story home.<br>
-    Focus on how rooms are arranged—such as room types, sizes, adjacencies, and orientations
-    (NOT interior decoration or style).<br>
+    Focus on how rooms are arranged—such as room types, sizes, adjacencies,
+    and orientations <b>(NOT interior decoration or style)</b>.<br>
     (150–250 words)
   </div>
 
-  <textarea id="notesArea"
-    style="flex:1; min-height:300px;"
-    placeholder="Type here"></textarea>
+  <textarea id="notesArea" style="flex:1; min-height:300px;"
+    placeholder="Describe room arrangement, adjacencies, orientations..."></textarea>
 </section>
 
 </main>
@@ -262,6 +289,7 @@ textarea {
 <script>
 const GRID = 15;
 const CM = 60;
+
 const COLORS = {
   "Living Room":"rgba(59,130,246,0.3)",
   "Kitchen":"rgba(34,197,94,0.3)",
@@ -282,15 +310,46 @@ let idCounter = 1;
 
 window.onload = () => {
   const rect = canvas.getBoundingClientRect();
-  const x = Math.round((rect.width/2 - 17.5)/GRID)*GRID;
-  const y = Math.round((rect.height/2 - 22.5)/GRID)*GRID;
+  let x = rect.width/2 - 17.5;
+  let y = rect.height/2 - 22.5;
+  x = Math.round(x/GRID)*GRID;
+  y = Math.round(y/GRID)*GRID;
+
   person.style.left = x+"px";
   person.style.top = y+"px";
+
   shapes.push({ id:"person", x,y,width:35,height:45,isPerson:true });
   attachDrag(person);
 };
 
-document.getElementById("addRoomBtn").onclick = () => {
+function attachDrag(el){
+  el.onmousedown = e=>{
+    e.preventDefault();
+    selectedId = el.dataset?.id || "person";
+    const sx=e.clientX, sy=e.clientY;
+    const ix=parseFloat(el.style.left), iy=parseFloat(el.style.top);
+
+    function move(ev){
+      let nx=ix+(ev.clientX-sx);
+      let ny=iy+(ev.clientY-sy);
+      nx=Math.round(nx/GRID)*GRID;
+      ny=Math.round(ny/GRID)*GRID;
+      el.style.left=nx+"px";
+      el.style.top=ny+"px";
+      const s=shapes.find(o=>o.id===selectedId);
+      if(s){s.x=nx; s.y=ny;}
+      updateJSON();
+    }
+    function up(){
+      document.removeEventListener("mousemove",move);
+      document.removeEventListener("mouseup",up);
+    }
+    document.addEventListener("mousemove",move);
+    document.addEventListener("mouseup",up);
+  }
+}
+
+addRoomBtn.onclick = () => {
   const type = customRoomType.value;
   const w = +customWidth.value * GRID;
   const h = +customHeight.value * GRID;
@@ -321,31 +380,6 @@ document.getElementById("addRoomBtn").onclick = () => {
   attachDrag(d);
   updateJSON();
 };
-
-function attachDrag(el){
-  el.onmousedown = e=>{
-    e.preventDefault();
-    selectedId = el.dataset?.id || "person";
-    const sx=e.clientX, sy=e.clientY;
-    const ix=parseFloat(el.style.left), iy=parseFloat(el.style.top);
-
-    function move(ev){
-      const nx=Math.round((ix+(ev.clientX-sx))/GRID)*GRID;
-      const ny=Math.round((iy+(ev.clientY-sy))/GRID)*GRID;
-      el.style.left=nx+"px";
-      el.style.top=ny+"px";
-      const s=shapes.find(o=>o.id===selectedId);
-      if(s){s.x=nx; s.y=ny;}
-      updateJSON();
-    }
-    function up(){
-      document.removeEventListener("mousemove",move);
-      document.removeEventListener("mouseup",up);
-    }
-    document.addEventListener("mousemove",move);
-    document.addEventListener("mouseup",up);
-  }
-}
 
 document.onkeydown = e=>{
   if((e.key==="Delete"||e.key==="Backspace") && selectedId){
@@ -380,9 +414,11 @@ clearBtn.onclick=()=>{
 saveBtn.onclick=async()=>{
   const notes=notesArea.value.trim();
   if(!notes) return alert("Write notes first");
+
   const data={layout:JSON.parse(jsonOut.value),notes};
   download(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"layout.json");
   download(new Blob(["\uFEFF"+notes],{type:"text/plain"}),"notes.txt");
+
   const shot=await html2canvas(canvas,{scale:2});
   shot.toBlob(b=>download(b,"layout.png"));
   alert("Saved!");
@@ -397,3 +433,4 @@ function download(blob,name){
 </script>
 </body>
 </html>
+
