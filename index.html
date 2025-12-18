@@ -287,8 +287,8 @@ textarea {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
-const GRID = 15;
-const CM = 60;
+const GRID = 20;
+const CM = 100;
 
 const COLORS = {
   "Living Room":"rgba(59,130,246,0.3)",
@@ -318,7 +318,7 @@ window.onload = () => {
   person.style.left = x+"px";
   person.style.top = y+"px";
 
-  shapes.push({ id:"person", x,y,width:20,height:30,isPerson:true });
+  shapes.push({ id:"person", x,y,width:35,height:45,isPerson:true });
   attachDrag(person);
 };
 
