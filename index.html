@@ -404,7 +404,7 @@ clearBtn.onclick=()=>{
 
 saveBtn.onclick=async()=>{
   const notes=notesArea.value.trim();
-  if(!notes) return alert("Write notes first");
+  if(!notes) return alert("Write descriptions in the Text panel on the right.");
 
   // Create JSON data with coordinates in centimeters
   const layoutData = shapes.filter(s=>!s.isPerson).map(s=>({
