@@ -248,6 +248,7 @@ textarea {
     <ul>
       <li><b>Add</b> rooms and <b>drag</b> them to design your ideal floor plan.</li>
       <li>Press <b>Delete</b> to remove a room.</li>
+      <li>The person icon (180cm/5'10" tall) serves as a size reference.</li>
       <li>Describe your layout in the <b>Text</b> panel on the right.</li>
       <li>Press <b>Save All</b> to download PNG, JSON, and TXT files.</li>
     </ul>
@@ -326,6 +327,7 @@ window.onload = () => {
   attachDrag(person);
 };
 
+
 function attachDrag(el){
   el.onmousedown = e=>{
     e.preventDefault();
@@ -336,8 +338,8 @@ function attachDrag(el){
     function move(ev){
       let nx=ix+(ev.clientX-sx);
       let ny=iy+(ev.clientY-sy);
-      nx=Math.round(nx/GRID)*GRID;
-      ny=Math.round(ny/GRID)*GRID;
+      nx=Math.round(nx/(GRID/2))*(GRID/2);
+      ny=Math.round(ny/(GRID/2))*(GRID/2);
       el.style.left=nx+"px";
       el.style.top=ny+"px";
       const s=shapes.find(o=>o.id===selectedId);
