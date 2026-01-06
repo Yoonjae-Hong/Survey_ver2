@@ -405,6 +405,12 @@ saveBtn.onclick=async()=>{
   const notes=notesArea.value.trim();
   if(!notes) return alert("Write descriptions in the Text panel on the right.");
 
+  // Count words
+  const wordCount = notes.split(/\s+/).filter(w=>w.length>0).length;
+  if(wordCount < 150) {
+    return alert(`Please write at least 150 words. Current word count: ${wordCount}`);
+  }
+
   // Create JSON data with coordinates in centimeters
   const layoutData = shapes.filter(s=>!s.isPerson).map(s=>({
     id:s.id,
