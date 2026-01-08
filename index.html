@@ -658,11 +658,26 @@ document.onkeydown = e=>{
   }
 };
 
-clearBtn.onclick=()=>{
-  if(!confirm("Clear all rooms?"))return;
-  shapes=shapes.filter(s=>s.isPerson);
-  document.querySelectorAll(".canvas-shape").forEach(e=>e.remove());
-  selectedId=null;
+clearBtn.onclick = () => {
+  if (!confirm("Clear entire canvas (rooms + exteriors)?")) return;
+
+  // --- Clear rooms ---
+  shapes = shapes.filter(s => s.isPerson);
+  document.querySelectorAll(".canvas-shape").forEach(e => e.remove());
+  selectedId = null;
+
+  // --- Clear exteriors ---
+  allWalls = [];
+  currentWall = [];
+  tempPoint = null;
+  redrawWalls();
+
+  // --- Reset drawing mode if active ---
+  isDrawingWalls = false;
+  drawWallBtn.textContent = 'Start Drawing';
+  drawWallBtn.classList.remove('active');
+  canvas.classList.remove('drawing-mode');
+  wallCanvas.style.pointerEvents = 'none';
 };
 
 saveBtn.onclick=async()=>{
