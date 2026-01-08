@@ -659,7 +659,7 @@ document.onkeydown = e=>{
 };
 
 clearBtn.onclick = () => {
-  if (!confirm("Clear entire canvas (rooms + exteriors)?")) return;
+  if (!confirm("Clear entire canvas?")) return;
 
   // --- Clear rooms ---
   shapes = shapes.filter(s => s.isPerson);
