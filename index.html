@@ -145,7 +145,7 @@ body {
   cursor:crosshair;
 }
 
-.wall-canvas {
+.exterior-canvas {
   position:absolute;
   top:0;
   left:0;
@@ -185,6 +185,11 @@ body {
   cursor:move;
   z-index:30;
   user-select:none;
+  pointer-events:auto;
+}
+
+.canvas.drawing-mode .person-icon {
+  pointer-events:none;
 }
 
 .canvas-shape {
@@ -199,10 +204,15 @@ body {
   padding:3px;
   text-align:center;
   z-index:15;
+  pointer-events:auto;
 }
 
 .canvas-shape.selected {
   box-shadow:0 0 0 2px #2563eb;
+}
+
+.canvas.drawing-mode .canvas-shape {
+  pointer-events:none;
 }
 
 /* ---------- RIGHT (Notes) ---------- */
@@ -264,9 +274,9 @@ textarea {
   
   <hr style="margin:16px 0;">
   
-  <h3>Draw Exterior</h3>
+  <h3>Draw Walls</h3>
   <button id="drawWallBtn" class="btn btn-secondary">Start Drawing</button>
-  <button id="clearWallsBtn" class="btn" style="margin-top:6px;">Clear Exteriors</button>
+  <button id="clearWallsBtn" class="btn" style="margin-top:6px;">Clear Walls</button>
   
   <hr style="margin:16px 0;">
 
@@ -280,7 +290,7 @@ textarea {
     <b>Instruction</b>
     <ul>
       <li><b>Add</b> rooms to the grid using the menu on the left side of the screen and <b>drag</b> them into position to design your ideal floor plan (Human icon is 180cm for scale).</li>
-      <li><b>Draw Exterior of House:</b> Click "Start Drawing" button, then click on the canvas to place wall points. Double-click to finish drawing.</li>
+      <li><b>Draw Walls:</b> Click "Start Drawing" button, then click on the canvas to place wall points. Double-click to finish drawing.</li>
       <li>Use <b>Delete</b> key to remove a room.</li>
       <li>Describe your home layout in the <b>text panel</b> on the right.</li>
       <li>Press <b>Save All</b> to download PNG, JSON, and TXT files to <b>upload</b> into google form.</li>
@@ -288,7 +298,7 @@ textarea {
   </div>
 
   <div class="canvas" id="canvas">
-    <canvas id="wallCanvas" class="wall-canvas"></canvas>
+    <canvas id="exteriorCanvas" class="exterior-canvas"></canvas>
     <div class="compass">
       <div class="north">N</div>
       <div class="east">E</div>
@@ -335,17 +345,17 @@ const COLORS = {
 
 const canvas = document.getElementById("canvas");
 const person = document.getElementById("personIcon");
-const wallCanvas = document.getElementById("wallCanvas");
-const wallCtx = wallCanvas.getContext("2d");
+const exteriorCanvas = document.getElementById("exteriorCanvas");
+const exteriorCtx = exteriorCanvas.getContext("2d");
 
 let shapes = [];
 let selectedId = null;
 let idCounter = 1;
 
 // Wall drawing variables
-let isDrawingWalls = false;
-let allWalls = []; // Store all completed walls
-let currentWall = []; // Current wall being drawn
+let isDrawingExterior = false;
+let allExteriors = []; // Store all completed exteriors
+let currentExterior = []; // Current exterior being drawn
 let tempPoint = null;
 
 // Show/hide custom label input
@@ -353,16 +363,16 @@ customRoomType.onchange = () => {
   labelContainer.style.display = customRoomType.value === "Others" ? "block" : "none";
 };
 
-// Initialize wall canvas size
-function resizeWallCanvas() {
+// Initialize exterior canvas size
+function resizeExteriorCanvas() {
   const rect = canvas.getBoundingClientRect();
-  wallCanvas.width = rect.width;
-  wallCanvas.height = rect.height;
-  redrawWalls();
+  exteriorCanvas.width = rect.width;
+  exteriorCanvas.height = rect.height;
+  redrawExteriors();
 }
 
 window.onload = () => {
-  resizeWallCanvas();
+  resizeExteriorCanvas();
   
   const rect = canvas.getBoundingClientRect();
   // Person is 1.8m tall = 36px (1.8 * 20), width is 20px (1m)
@@ -378,75 +388,75 @@ window.onload = () => {
   attachDrag(person);
 };
 
-window.addEventListener('resize', resizeWallCanvas);
+window.addEventListener('resize', resizeExteriorCanvas);
 
-function redrawWalls() {
-  wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
+function redrawExteriors() {
+  exteriorCtx.clearRect(0, 0, exteriorCanvas.width, exteriorCanvas.height);
   
-  // Draw all completed walls
-  allWalls.forEach(wall => {
-    if (wall.length >= 2) {
-      wallCtx.strokeStyle = '#1f2937';
-      wallCtx.lineWidth = 6;
-      wallCtx.lineCap = 'round';
-      wallCtx.lineJoin = 'round';
+  // Draw all completed exteriors
+  allExteriors.forEach(exterior => {
+    if (exterior.length >= 2) {
+      exteriorCtx.strokeStyle = '#1f2937';
+      exteriorCtx.lineWidth = 6;
+      exteriorCtx.lineCap = 'round';
+      exteriorCtx.lineJoin = 'round';
       
-      wallCtx.beginPath();
-      wallCtx.moveTo(wall[0].x, wall[0].y);
+      exteriorCtx.beginPath();
+      exteriorCtx.moveTo(exterior[0].x, exterior[0].y);
       
-      for (let i = 1; i < wall.length; i++) {
-        wallCtx.lineTo(wall[i].x, wall[i].y);
+      for (let i = 1; i < exterior.length; i++) {
+        exteriorCtx.lineTo(exterior[i].x, exterior[i].y);
       }
       
-      wallCtx.stroke();
+      exteriorCtx.stroke();
     }
     
-    // Draw points for completed walls
-    wallCtx.fillStyle = '#ef4444';
-    wall.forEach(p => {
-      wallCtx.beginPath();
-      wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-      wallCtx.fill();
+    // Draw points for completed exteriors
+    exteriorCtx.fillStyle = '#ef4444';
+    exterior.forEach(p => {
+      exteriorCtx.beginPath();
+      exteriorCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      exteriorCtx.fill();
     });
   });
   
-  // Draw current wall being drawn
-  if (currentWall.length >= 2) {
-    wallCtx.strokeStyle = '#1f2937';
-    wallCtx.lineWidth = 6;
-    wallCtx.lineCap = 'round';
-    wallCtx.lineJoin = 'round';
+  // Draw current exterior being drawn
+  if (currentExterior.length >= 2) {
+    exteriorCtx.strokeStyle = '#1f2937';
+    exteriorCtx.lineWidth = 6;
+    exteriorCtx.lineCap = 'round';
+    exteriorCtx.lineJoin = 'round';
     
-    wallCtx.beginPath();
-    wallCtx.moveTo(currentWall[0].x, currentWall[0].y);
+    exteriorCtx.beginPath();
+    exteriorCtx.moveTo(currentExterior[0].x, currentExterior[0].y);
     
-    for (let i = 1; i < currentWall.length; i++) {
-      wallCtx.lineTo(currentWall[i].x, currentWall[i].y);
+    for (let i = 1; i < currentExterior.length; i++) {
+      exteriorCtx.lineTo(currentExterior[i].x, currentExterior[i].y);
     }
     
-    wallCtx.stroke();
+    exteriorCtx.stroke();
   }
   
-  // Draw points for current wall
-  if (currentWall.length > 0) {
-    wallCtx.fillStyle = '#ef4444';
-    currentWall.forEach(p => {
-      wallCtx.beginPath();
-      wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-      wallCtx.fill();
+  // Draw points for current exterior
+  if (currentExterior.length > 0) {
+    exteriorCtx.fillStyle = '#ef4444';
+    currentExterior.forEach(p => {
+      exteriorCtx.beginPath();
+      exteriorCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      exteriorCtx.fill();
     });
   }
   
   // Draw temporary line
-  if (tempPoint && currentWall.length > 0) {
-    wallCtx.strokeStyle = '#9ca3af';
-    wallCtx.lineWidth = 2;
-    wallCtx.setLineDash([5, 5]);
-    wallCtx.beginPath();
-    wallCtx.moveTo(currentWall[currentWall.length - 1].x, currentWall[currentWall.length - 1].y);
-    wallCtx.lineTo(tempPoint.x, tempPoint.y);
-    wallCtx.stroke();
-    wallCtx.setLineDash([]);
+  if (tempPoint && currentExterior.length > 0) {
+    exteriorCtx.strokeStyle = '#9ca3af';
+    exteriorCtx.lineWidth = 2;
+    exteriorCtx.setLineDash([5, 5]);
+    exteriorCtx.beginPath();
+    exteriorCtx.moveTo(currentExterior[currentExterior.length - 1].x, currentExterior[currentExterior.length - 1].y);
+    exteriorCtx.lineTo(tempPoint.x, tempPoint.y);
+    exteriorCtx.stroke();
+    exteriorCtx.setLineDash([]);
   }
 }
 
@@ -454,114 +464,114 @@ function snapToGrid(val) {
   return Math.round(val / (GRID / 2)) * (GRID / 2); // 0.5 grid units
 }
 
-// Draw wall button
-drawWallBtn.onclick = () => {
-  isDrawingWalls = !isDrawingWalls;
+// Draw exterior button
+drawExteriorBtn.onclick = () => {
+  isDrawingExterior = !isDrawingExterior;
   
-  if (isDrawingWalls) {
-    // Start new wall
-    currentWall = [];
+  if (isDrawingExterior) {
+    // Start new exterior
+    currentExterior = [];
     tempPoint = null;
     
-    drawWallBtn.textContent = 'Stop Drawing';
-    drawWallBtn.classList.add('active');
+    drawExteriorBtn.textContent = 'Stop Drawing';
+    drawExteriorBtn.classList.add('active');
     canvas.classList.add('drawing-mode');
-    wallCanvas.style.pointerEvents = 'auto';
+    exteriorCanvas.style.pointerEvents = 'auto';
   } else {
-    // Save current wall if it has points
-    if (currentWall.length > 0) {
-      allWalls.push([...currentWall]);
+    // Save current exterior if it has points
+    if (currentExterior.length > 0) {
+      allExteriors.push([...currentExterior]);
     }
-    currentWall = [];
+    currentExterior = [];
     
-    drawWallBtn.textContent = 'Start Drawing';
-    drawWallBtn.classList.remove('active');
+    drawExteriorBtn.textContent = 'Start Drawing';
+    drawExteriorBtn.classList.remove('active');
     canvas.classList.remove('drawing-mode');
-    wallCanvas.style.pointerEvents = 'none';
+    exteriorCanvas.style.pointerEvents = 'none';
     tempPoint = null;
-    redrawWalls();
+    redrawExteriors();
   }
 };
 
-// Wall canvas events
-wallCanvas.onclick = (e) => {
-  if (!isDrawingWalls) return;
+// Exterior canvas events
+exteriorCanvas.onclick = (e) => {
+  if (!isDrawingExterior) return;
   
-  const rect = wallCanvas.getBoundingClientRect();
+  const rect = exteriorCanvas.getBoundingClientRect();
   const x = snapToGrid(e.clientX - rect.left);
   const y = snapToGrid(e.clientY - rect.top);
   
   // Check if clicked on the first point (to close the shape)
-  if (currentWall.length > 2) {
-    const firstPoint = currentWall[0];
+  if (currentExterior.length > 2) {
+    const firstPoint = currentExterior[0];
     const distance = Math.sqrt(Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2));
     
     if (distance < GRID) {
       // Close the shape by connecting to first point
-      currentWall.push({ x: firstPoint.x, y: firstPoint.y });
+      currentExterior.push({ x: firstPoint.x, y: firstPoint.y });
       
-      // Save the completed wall
-      allWalls.push([...currentWall]);
-      currentWall = [];
+      // Save the completed exterior
+      allExteriors.push([...currentExterior]);
+      currentExterior = [];
       
       // Finish drawing
-      isDrawingWalls = false;
-      drawWallBtn.textContent = 'Start Drawing';
-      drawWallBtn.classList.remove('active');
+      isDrawingExterior = false;
+      drawExteriorBtn.textContent = 'Start Drawing';
+      drawExteriorBtn.classList.remove('active');
       canvas.classList.remove('drawing-mode');
-      wallCanvas.style.pointerEvents = 'none';
+      exteriorCanvas.style.pointerEvents = 'none';
       tempPoint = null;
-      redrawWalls();
+      redrawExteriors();
       return;
     }
   }
   
-  currentWall.push({ x, y });
-  redrawWalls();
+  currentExterior.push({ x, y });
+  redrawExteriors();
 };
 
-wallCanvas.ondblclick = (e) => {
-  if (!isDrawingWalls) return;
+exteriorCanvas.ondblclick = (e) => {
+  if (!isDrawingExterior) return;
   e.preventDefault();
   
-  // Save the completed wall
-  if (currentWall.length > 0) {
-    allWalls.push([...currentWall]);
+  // Save the completed exterior
+  if (currentExterior.length > 0) {
+    allExteriors.push([...currentExterior]);
   }
-  currentWall = [];
+  currentExterior = [];
   
   // Finish drawing
-  isDrawingWalls = false;
-  drawWallBtn.textContent = 'Start Drawing';
-  drawWallBtn.classList.remove('active');
+  isDrawingExterior = false;
+  drawExteriorBtn.textContent = 'Start Drawing';
+  drawExteriorBtn.classList.remove('active');
   canvas.classList.remove('drawing-mode');
-  wallCanvas.style.pointerEvents = 'none';
+  exteriorCanvas.style.pointerEvents = 'none';
   tempPoint = null;
-  redrawWalls();
+  redrawExteriors();
 };
 
-wallCanvas.onmousemove = (e) => {
-  if (!isDrawingWalls || currentWall.length === 0) return;
+exteriorCanvas.onmousemove = (e) => {
+  if (!isDrawingExterior || currentExterior.length === 0) return;
   
-  const rect = wallCanvas.getBoundingClientRect();
+  const rect = exteriorCanvas.getBoundingClientRect();
   tempPoint = {
     x: snapToGrid(e.clientX - rect.left),
     y: snapToGrid(e.clientY - rect.top)
   };
-  redrawWalls();
+  redrawExteriors();
 };
 
-clearWallsBtn.onclick = () => {
-  if (!confirm("Clear all walls?")) return;
-  allWalls = [];
-  currentWall = [];
+clearExteriorsBtn.onclick = () => {
+  if (!confirm("Clear all exteriors?")) return;
+  allExteriors = [];
+  currentExterior = [];
   tempPoint = null;
-  redrawWalls();
+  redrawExteriors();
 };
 
 function attachDrag(el){
   el.onmousedown = e=>{
-    if (isDrawingWalls) return;
+    if (isDrawingExterior) return;
     e.preventDefault();
     selectedId = el.dataset?.id || "person";
     const sx=e.clientX, sy=e.clientY;
@@ -646,6 +656,11 @@ saveBtn.onclick=async()=>{
     return alert(`Please write at least 150 words. Current word count: ${wordCount}`);
   }
 
+  // Check if exterior is drawn
+  if(allExteriors.length === 0) {
+    return alert("Please draw the exterior of your house before saving.");
+  }
+
   // Create JSON data with coordinates in centimeters
   const layoutData = shapes.filter(s=>!s.isPerson).map(s=>({
     id:s.id,
@@ -656,15 +671,15 @@ saveBtn.onclick=async()=>{
     height:s.heightInMeters*100
   }));
 
-  // Add wall data
-  const wallData = allWalls.map(wall => 
-    wall.map(p => ({
+  // Add exterior data
+  const exteriorData = allExteriors.map(exterior => 
+    exterior.map(p => ({
       x: p.x / GRID * 100, // convert to cm
       y: p.y / GRID * 100
     }))
   );
 
-  const data={layout:layoutData, walls:wallData, notes};
+  const data={layout:layoutData, exterior:exteriorData, notes};
   download(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"layout.json");
   download(new Blob(["\uFEFF"+notes],{type:"text/plain"}),"notes.txt");
 
