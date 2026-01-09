@@ -294,7 +294,7 @@ textarea {
     <b>Add</b> rooms using the menu on the left and <b>drag</b> them into position to design your ideal floor plan.
     <div style="color: #666;">
       • The human icon represents a height of 180 cm for scale.<br>
-      • Use the <b>Delete</b> key to remove a room.
+      • Select a room and press the <b>Delete</b> key to remove it.
     </div>
   </li>
 
@@ -308,7 +308,7 @@ textarea {
 
   <li>
     <b>[Step 3]</b>
-    Describe your home layout in the <b>Text Panel</b> on the right.
+    Describe your home layout in detail in the <b>Text Panel</b> on the right.
   </li>
 
   <li>
@@ -595,7 +595,14 @@ function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
     e.preventDefault();
+    
+    // Select the element when clicked
+    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+    if(oldSelected) oldSelected.classList.remove('selected');
+    
     selectedId = el.dataset?.id || "person";
+    el.classList.add('selected');
+    
     const sx=e.clientX, sy=e.clientY;
     const ix=parseFloat(el.style.left), iy=parseFloat(el.style.top);
 
