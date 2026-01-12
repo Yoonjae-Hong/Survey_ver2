@@ -515,6 +515,15 @@ drawWallBtn.onclick = () => {
   }
 };
 
+// Deselect when clicking on empty canvas
+canvas.onclick = (e) => {
+  if (e.target === canvas || e.target === wallCanvas) {
+    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+    if(oldSelected) oldSelected.classList.remove('selected');
+    selectedId = null;
+  }
+};
+
 // Wall canvas events
 wallCanvas.onclick = (e) => {
   if (!isDrawingWalls) return;
@@ -740,4 +749,4 @@ function download(blob,name){
 }
 </script>
 </body>
-</html>
+</htm
