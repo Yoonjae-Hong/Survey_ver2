@@ -515,14 +515,19 @@ drawWallBtn.onclick = () => {
   }
 };
 
-// Deselect when clicking on empty canvas
-canvas.onclick = (e) => {
-  if (e.target === canvas || e.target === wallCanvas) {
+// Deselect when clicking anywhere that's not a room or person
+document.addEventListener('mousedown', (e) => {
+  // Check if clicked element is a room or person
+  const isRoom = e.target.classList.contains('canvas-shape');
+  const isPerson = e.target.id === 'personIcon';
+  
+  // If clicked on something else, deselect
+  if (!isRoom && !isPerson) {
     const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
     selectedId = null;
   }
-};
+});
 
 // Wall canvas events
 wallCanvas.onclick = (e) => {
