@@ -595,7 +595,10 @@ wallCanvas.addEventListener('mousedown', (e) => {
       redrawWalls();
       e.stopPropagation();
     } else {
-      // Clicked on empty space - deselect wall
+      // Clicked on empty space - deselect everything
+      const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+      if(oldSelected) oldSelected.classList.remove('selected');
+      selectedId = null;
       selectedWallIndex = null;
       redrawWalls();
     }
