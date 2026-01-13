@@ -308,7 +308,7 @@ textarea {
       • Select <b>Start Drawing</b> to begin and select a corner of your floor plan.<br>
       • Moving around your floor plan, select each corner to create a border.<br>
       • To finish your outline, close your shape by ensuring that <b>the last point is the same as your first point.</b><br>
-      • To remove an outline, select it and press the <b>Delete<b/> key.
+      • You can <b>click on an outline and press Delete</b> to remove it.
   </li>
 
   <li>
@@ -339,7 +339,7 @@ textarea {
 </section>
 
 <!-- RIGHT -->
-<section class="panel">
+<section class="panel" style="display:flex; flex-direction:column;">
   <h3>Text</h3>
   <div class="notes-instruction">
     Please describe the layout of your ideal one-story home for your current living situation (household size, city, cost).<br>
@@ -347,7 +347,7 @@ textarea {
     <b>(Minimum 150 words)</b>
   </div>
 
-  <textarea id="notesArea" style="flex:1; min-height:300px;"
+  <textarea id="notesArea" style="flex:1; min-height:400px;"
     placeholder="Write about room types, sizes, adjacencies, and orientations in detail..."></textarea>
 </section>
 
@@ -709,9 +709,15 @@ function attachDrag(el){
   }
 }
 
-// Deselect when clicking on canvas background
-canvas.addEventListener('mousedown', (e) => {
-  if (e.target === canvas) {
+// Deselect when clicking on canvas background or other areas
+document.addEventListener('mousedown', (e) => {
+  const isRoom = e.target.classList.contains('canvas-shape');
+  const isPerson = e.target.id === 'personIcon';
+  const isWallCanvas = e.target.id === 'wallCanvas';
+  const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
+  
+  // If clicked on something that's not a room, person, wall canvas, or input field
+  if (!isRoom && !isPerson && !isWallCanvas && !isInput) {
     const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
     selectedId = null;
@@ -719,7 +725,7 @@ canvas.addEventListener('mousedown', (e) => {
     redrawWalls();
   }
 });
-  
+
 addRoomBtn.onclick = () => {
   const type = customRoomType.value;
   const widthInMeters = +customWidth.value;
