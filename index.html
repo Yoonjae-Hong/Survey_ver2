@@ -107,6 +107,7 @@ body {
 .btn.active {
   background:#ef4444;
   border-color:#ef4444;
+  color:#fff;
 }
 
 /* ---------- CENTER ---------- */
@@ -145,13 +146,18 @@ body {
   cursor:crosshair;
 }
 
+.canvas.drawing-mode .person-icon,
+.canvas.drawing-mode .canvas-shape {
+  pointer-events:none;
+}
+
 .wall-canvas {
   position:absolute;
   top:0;
   left:0;
   width:100%;
   height:100%;
-  pointer-events:none;
+  pointer-events:auto;
   z-index:10;
 }
 
@@ -165,6 +171,7 @@ body {
   background:rgba(255,255,255,0.95);
   border:2px solid #555;
   z-index:20;
+  pointer-events:none;
 }
 
 .compass div {
@@ -188,8 +195,8 @@ body {
   pointer-events:auto;
 }
 
-.canvas.drawing-mode .person-icon {
-  pointer-events:none;
+.person-icon.selected {
+  box-shadow:0 0 0 2px #2563eb;
 }
 
 .canvas-shape {
@@ -209,10 +216,6 @@ body {
 
 .canvas-shape.selected {
   box-shadow:0 0 0 2px #2563eb;
-}
-
-.canvas.drawing-mode .canvas-shape {
-  pointer-events:none;
 }
 
 /* ---------- RIGHT (Notes) ---------- */
@@ -304,7 +307,8 @@ textarea {
     <div style="color: #666;">
       • Select <b>Start Drawing</b> to begin and select a corner of your floor plan.<br>
       • Moving around your floor plan, select each corner to create a border.<br>
-      • To finish your outline, close your shape by ensuring that <b>the last point is the same as your first point.</b>
+      • To finish your outline, close your shape by ensuring that <b>the last point is the same as your first point.</b><br>
+      • You can <b>click on an outline and press Delete</b> to remove it.
   </li>
 
   <li>
@@ -381,6 +385,7 @@ let isDrawingWalls = false;
 let allWalls = []; // Store all completed walls
 let currentWall = []; // Current wall being drawn
 let tempPoint = null;
+let selectedWallIndex = null; // Track selected wall for deletion
 
 // Show/hide custom label input
 customRoomType.onchange = () => {
@@ -418,10 +423,13 @@ function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
   
   // Draw all completed walls
-  allWalls.forEach(wall => {
+  allWalls.forEach((wall, index) => {
     if (wall.length >= 2) {
-      wallCtx.strokeStyle = '#1f2937';
-      wallCtx.lineWidth = 6;
+      // Highlight selected wall
+      const isSelected = selectedWallIndex === index;
+      
+      wallCtx.strokeStyle = isSelected ? '#2563eb' : '#1f2937';
+      wallCtx.lineWidth = isSelected ? 8 : 6;
       wallCtx.lineCap = 'round';
       wallCtx.lineJoin = 'round';
       
@@ -436,10 +444,10 @@ function redrawWalls() {
     }
     
     // Draw points for completed walls
-    wallCtx.fillStyle = '#ef4444';
+    wallCtx.fillStyle = selectedWallIndex === index ? '#2563eb' : '#ef4444';
     wall.forEach(p => {
       wallCtx.beginPath();
-      wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      wallCtx.arc(p.x, p.y, selectedWallIndex === index ? 5 : 4, 0, Math.PI * 2);
       wallCtx.fill();
     });
   });
@@ -488,19 +496,67 @@ function snapToGrid(val) {
   return Math.round(val / (GRID / 2)) * (GRID / 2); // 0.5 grid units
 }
 
+// Helper function to check if point is near a line segment
+function distanceToLineSegment(px, py, x1, y1, x2, y2) {
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = -1;
+  
+  if (lenSq != 0) param = dot / lenSq;
+
+  let xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  const dx = px - xx;
+  const dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Helper function to find which wall was clicked
+function findClickedWall(x, y) {
+  const threshold = 15; // Click detection threshold in pixels
+  
+  for (let i = 0; i < allWalls.length; i++) {
+    const wall = allWalls[i];
+    for (let j = 0; j < wall.length - 1; j++) {
+      const dist = distanceToLineSegment(x, y, wall[j].x, wall[j].y, wall[j + 1].x, wall[j + 1].y);
+      if (dist < threshold) {
+        return i;
+      }
+    }
+  }
+  return null;
+}
+
 // Draw wall button
 drawWallBtn.onclick = () => {
   isDrawingWalls = !isDrawingWalls;
   
   if (isDrawingWalls) {
-    // Start new wall
+    // Start new wall - deselect any selected wall
     currentWall = [];
     tempPoint = null;
+    selectedWallIndex = null;
+    redrawWalls();
     
     drawWallBtn.textContent = 'Stop Drawing';
     drawWallBtn.classList.add('active');
     canvas.classList.add('drawing-mode');
-    wallCanvas.style.pointerEvents = 'auto';
   } else {
     // Save current wall if it has points
     if (currentWall.length > 0) {
@@ -511,34 +567,42 @@ drawWallBtn.onclick = () => {
     drawWallBtn.textContent = 'Start Drawing';
     drawWallBtn.classList.remove('active');
     canvas.classList.remove('drawing-mode');
-    wallCanvas.style.pointerEvents = 'none';
     tempPoint = null;
     redrawWalls();
   }
 };
 
-// Deselect when clicking anywhere that's not a room or person
-document.addEventListener('mousedown', (e) => {
-  // Check if clicked element is a room or person
-  const isRoom = e.target.classList.contains('canvas-shape');
-  const isPerson = e.target.id === 'personIcon';
-  
-  // If clicked on something else, deselect
-  if (!isRoom && !isPerson) {
-    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
-    if(oldSelected) oldSelected.classList.remove('selected');
-    selectedId = null;
-  }
-});
-
 // Wall canvas events
-wallCanvas.onclick = (e) => {
-  if (!isDrawingWalls) return;
-  
+wallCanvas.addEventListener('mousedown', (e) => {
   const rect = wallCanvas.getBoundingClientRect();
-  const x = snapToGrid(e.clientX - rect.left);
-  const y = snapToGrid(e.clientY - rect.top);
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+  const x = snapToGrid(clickX);
+  const y = snapToGrid(clickY);
   
+  if (!isDrawingWalls) {
+    // Not drawing mode - check if clicking on a wall to select it
+    const clickedWallIndex = findClickedWall(clickX, clickY);
+    
+    if (clickedWallIndex !== null) {
+      // Deselect rooms
+      const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+      if(oldSelected) oldSelected.classList.remove('selected');
+      selectedId = null;
+      
+      // Select wall
+      selectedWallIndex = clickedWallIndex;
+      redrawWalls();
+      e.stopPropagation();
+    } else {
+      // Clicked on empty space - deselect wall
+      selectedWallIndex = null;
+      redrawWalls();
+    }
+    return;
+  }
+  
+  // Drawing mode - add point to current wall
   // Check if clicked on the first point (to close the shape)
   if (currentWall.length > 2) {
     const firstPoint = currentWall[0];
@@ -557,7 +621,6 @@ wallCanvas.onclick = (e) => {
       drawWallBtn.textContent = 'Start Drawing';
       drawWallBtn.classList.remove('active');
       canvas.classList.remove('drawing-mode');
-      wallCanvas.style.pointerEvents = 'none';
       tempPoint = null;
       redrawWalls();
       return;
@@ -566,7 +629,7 @@ wallCanvas.onclick = (e) => {
   
   currentWall.push({ x, y });
   redrawWalls();
-};
+});
 
 wallCanvas.ondblclick = (e) => {
   if (!isDrawingWalls) return;
@@ -583,7 +646,6 @@ wallCanvas.ondblclick = (e) => {
   drawWallBtn.textContent = 'Start Drawing';
   drawWallBtn.classList.remove('active');
   canvas.classList.remove('drawing-mode');
-  wallCanvas.style.pointerEvents = 'none';
   tempPoint = null;
   redrawWalls();
 };
@@ -604,6 +666,7 @@ clearWallsBtn.onclick = () => {
   allWalls = [];
   currentWall = [];
   tempPoint = null;
+  selectedWallIndex = null;
   redrawWalls();
 };
 
@@ -611,10 +674,15 @@ function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
     e.preventDefault();
+    e.stopPropagation();
     
     // Select the element when clicked
     const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
+    
+    // Deselect wall when selecting a room
+    selectedWallIndex = null;
+    redrawWalls();
     
     selectedId = el.dataset?.id || "person";
     el.classList.add('selected');
@@ -640,6 +708,17 @@ function attachDrag(el){
     document.addEventListener("mouseup",up);
   }
 }
+
+// Deselect when clicking on canvas background
+canvas.addEventListener('mousedown', (e) => {
+  if (e.target === canvas) {
+    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+    if(oldSelected) oldSelected.classList.remove('selected');
+    selectedId = null;
+    selectedWallIndex = null;
+    redrawWalls();
+  }
+});
   
 addRoomBtn.onclick = () => {
   const type = customRoomType.value;
@@ -672,15 +751,27 @@ addRoomBtn.onclick = () => {
   canvas.appendChild(d);
   shapes.push({id,label,x,y,width:w,height:h,widthInMeters,heightInMeters});
   attachDrag(d);
+  
+  // Don't auto-select the newly created room
+  selectedId = null;
 };
 
 document.onkeydown = e=>{
-  if((e.key==="Delete"||e.key==="Backspace") && selectedId){
-    const s=shapes.find(o=>o.id===selectedId);
-    if(s?.isPerson) return;
-    canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
-    shapes=shapes.filter(o=>o.id!==selectedId);
-    selectedId=null;
+  if((e.key==="Delete"||e.key==="Backspace")){
+    // Check if a room is selected
+    if(selectedId){
+      const s=shapes.find(o=>o.id===selectedId);
+      if(s?.isPerson) return;
+      canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
+      shapes=shapes.filter(o=>o.id!==selectedId);
+      selectedId=null;
+    }
+    // Check if a wall is selected
+    else if(selectedWallIndex !== null){
+      allWalls.splice(selectedWallIndex, 1);
+      selectedWallIndex = null;
+      redrawWalls();
+    }
   }
 };
 
@@ -696,6 +787,7 @@ clearBtn.onclick = () => {
   allWalls = [];
   currentWall = [];
   tempPoint = null;
+  selectedWallIndex = null;
   redrawWalls();
 
   // --- Reset drawing mode if active ---
@@ -703,7 +795,6 @@ clearBtn.onclick = () => {
   drawWallBtn.textContent = 'Start Drawing';
   drawWallBtn.classList.remove('active');
   canvas.classList.remove('drawing-mode');
-  wallCanvas.style.pointerEvents = 'none';
 };
 
 saveBtn.onclick=async()=>{
@@ -756,4 +847,4 @@ function download(blob,name){
 }
 </script>
 </body>
-</htm
+</html>
