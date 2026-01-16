@@ -89,7 +89,7 @@ body { margin:0; background:#f5f5f7; }
   overflow:hidden;
 }
 
-/* Outline drawing kept (optional) */
+/* Outline drawing (optional) */
 .canvas.drawing-mode{ cursor:crosshair; }
 .canvas.drawing-mode .person-icon,
 .canvas.drawing-mode .canvas-shape,
@@ -224,11 +224,11 @@ textarea{
   <hr style="margin:16px 0;">
 
   <h3>Add Door / Window (on Room Edge)</h3>
-  <button id="addDoorBtn" class="btn btn-secondary">Add Door (Outward)</button>
+  <button id="addDoorBtn" class="btn btn-secondary">Add Door</button>
   <button id="addWindowBtn" class="btn btn-secondary" style="margin-top:6px;">Add Window (2×0.5)</button>
   <div style="margin-top:10px; font-size:12px; color:#444; line-height:1.4;">
     • Click a button, then click <b>ON a room edge</b> to place it.<br>
-    • Doors open <b>outward</b> from the room.
+    • Door rule: <b>N/E outward</b>, <b>W/S inward</b>
   </div>
 
   <hr style="margin:16px 0;">
@@ -255,12 +255,8 @@ textarea{
           • To remove a room/fixture, select it and press <b>Delete</b>.
         </div>
       </li>
-      <li>
-        <b>[Step 2]</b> <b>Add doors/windows</b> by clicking <b>on a room edge</b>.
-      </li>
-      <li>
-        <b>[Step 3]</b> (Optional) Outline boundary using drawing tool.
-      </li>
+      <li><b>[Step 2]</b> Add doors/windows by clicking <b>on a room edge</b>.</li>
+      <li><b>[Step 3]</b> (Optional) Outline boundary using drawing tool.</li>
       <li><b>[Step 4]</b> Press <b>Save All</b> to download PNG/JSON/TXT.</li>
     </ul>
   </div>
@@ -300,7 +296,6 @@ const GRID = 20;               // 1 grid = 1 meter
 const WALL_THICKNESS_PX = 6;   // offset by wall thickness
 const OFFSET_PX = WALL_THICKNESS_PX / 2;
 
-// How close you must click to a room edge to place a fixture
 const EDGE_CLICK_THRESHOLD_PX = 12;
 
 const COLORS = {
@@ -367,7 +362,35 @@ window.onload = () => {
 window.addEventListener('resize', resizeWallCanvas);
 
 /* =========================
-   Outline drawing (unchanged, optional)
+   Selection / deselection
+========================= */
+function deselectAll() {
+  const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
+  if (oldSelected) oldSelected.classList.remove('selected');
+  selectedId = null;
+  selectedWallIndex = null;
+  redrawWalls();
+}
+
+// Document-level click: deselect when clicking elsewhere (IMPORTANT: wallCanvas covers empty space)
+document.addEventListener('mousedown', (e) => {
+  const isShape =
+    e.target.classList.contains('canvas-shape') ||
+    e.target.classList.contains('fixture-shape') ||
+    e.target.closest?.('.fixture-shape');
+
+  const isPerson = e.target.id === 'personIcon';
+  const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
+
+  // If not clicking on a selectable entity or UI, deselect
+  if (!isShape && !isPerson && !isInput) {
+    // NOTE: wallCanvas clicks should also deselect -> no longer excluded
+    deselectAll();
+  }
+}, true);
+
+/* =========================
+   Outline drawing (optional)
 ========================= */
 function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
@@ -465,7 +488,7 @@ clearWallsBtn.onclick = () => {
 };
 
 wallCanvas.addEventListener('mousedown', (e) => {
-  // outline drawing only
+  // if drawing, handle outline creation
   if (!isDrawingWalls) return;
 
   const rect = wallCanvas.getBoundingClientRect();
@@ -629,35 +652,24 @@ function createDoorSVG(sizePx) {
   return svg;
 }
 
-/*
-Outward opening:
-- We offset OUTWARD from the room by OFFSET_PX
-- We also flip the door arc so it swings outward relative to the room interior.
-Given we use a fixed SVG that swings "down-right" in its local coordinates,
-we can use scaleY(-1) in combination with outward vector to make it swing outward consistently.
-Simpler: treat outward as "interior normal" would be -outward. So flipY is always -1 compared to inward.
-We will:
-  - rotate by angleDeg (edge tangent)
-  - scaleY(-1) ALWAYS (because our SVG is drawn as inward swing in local +y; outward is -y)
+/* Door swing rule:
+   - Top/Right: outward  -> scaleY(-1)
+   - Left/Bottom: inward -> scaleY( 1)
 */
+function doorScaleYForEdge(edgeName) {
+  return (edgeName === "Top" || edgeName === "Right") ? -1 : 1;
+}
+
 function placeFixtureOnRoomEdge(kind, edgeHit) {
+  // 1) choose offset direction:
+  //    - Doors/windows should sit "on the edge": move toward outward by wall thickness offset.
   const baseCx = snapToGrid(edgeHit.closest.x);
   const baseCy = snapToGrid(edgeHit.closest.y);
 
-  // outward offset
   const cx = baseCx + edgeHit.outward.x * OFFSET_PX;
   const cy = baseCy + edgeHit.outward.y * OFFSET_PX;
 
   const angleDeg = edgeHit.angleDeg;
-
-  let wM, hM, wPx, hPx;
-  if (kind === "Door") {
-    wM = 1; hM = 1;
-    wPx = GRID; hPx = GRID;
-  } else {
-    wM = 2; hM = 0.5;
-    wPx = 2 * GRID; hPx = 0.5 * GRID;
-  }
 
   const id = (kind === "Door" ? "door_" : "window_") + (idCounter++);
 
@@ -666,29 +678,37 @@ function placeFixtureOnRoomEdge(kind, edgeHit) {
   d.dataset.id = id;
   d.dataset.kind = kind;
 
-  // base placement (by center)
-  d.style.width = wPx + "px";
-  d.style.height = hPx + "px";
-  d.style.left = (cx - wPx/2) + "px";
-  d.style.top  = (cy - hPx/2) + "px";
-
   if (kind === "Door") {
-    // door is 1x1 grid square
-    d.style.width = GRID + "px";
-    d.style.height = GRID + "px";
-    d.style.left = (cx - GRID/2) + "px";
-    d.style.top  = (cy - GRID/2) + "px";
+    // door is 1x1 grid square (SVG inside)
+    const wPx = GRID, hPx = GRID;
 
-    // Outward swing: flipY(-1)
-    d.style.transform = `rotate(${angleDeg}deg) scaleY(-1)`;
+    d.style.width = wPx + "px";
+    d.style.height = hPx + "px";
+    d.style.left = (cx - wPx/2) + "px";
+    d.style.top  = (cy - hPx/2) + "px";
+
+    const sy = doorScaleYForEdge(edgeHit.edge);
+    d.style.transform = `rotate(${angleDeg}deg) scaleY(${sy})`;
     d.appendChild(createDoorSVG(GRID));
   } else {
-    // Window: sharp black rectangle
-    d.style.transform = `rotate(${angleDeg}deg)`;
+    // Window FIX: do NOT rotate.
+    // Instead swap dimensions depending on edge orientation so it always snaps to grid cleanly.
+    const isVerticalEdge = (edgeHit.edge === "Left" || edgeHit.edge === "Right");
+    const wPx = isVerticalEdge ? (0.5 * GRID) : (2 * GRID); // vertical: 0.5 wide
+    const hPx = isVerticalEdge ? (2 * GRID) : (0.5 * GRID); // vertical: 2 tall
+
+    d.style.width = wPx + "px";
+    d.style.height = hPx + "px";
+    d.style.left = (cx - wPx/2) + "px";
+    d.style.top  = (cy - hPx/2) + "px";
+
+    // no rotate needed (axis-aligned)
+    d.style.transform = `rotate(0deg)`;
   }
 
   canvas.appendChild(d);
 
+  // store
   shapes.push({
     id,
     label: kind,
@@ -697,14 +717,10 @@ function placeFixtureOnRoomEdge(kind, edgeHit) {
     y: parseFloat(d.style.top),
     width: parseFloat(d.style.width),
     height: parseFloat(d.style.height),
-    widthInMeters: wM,
-    heightInMeters: hM,
-    rotationDeg: angleDeg,
-    attachedTo: {
-      type: "RoomEdge",
-      roomId: edgeHit.roomId,
-      edge: edgeHit.edge
-    },
+    widthInMeters: kind === "Door" ? 1 : (edgeHit.edge === "Left" || edgeHit.edge === "Right") ? 0.5 : 2,
+    heightInMeters: kind === "Door" ? 1 : (edgeHit.edge === "Left" || edgeHit.edge === "Right") ? 2 : 0.5,
+    rotationDeg: kind === "Door" ? angleDeg : 0,
+    attachedTo: { type:"RoomEdge", roomId: edgeHit.roomId, edge: edgeHit.edge },
     outwardNormal: edgeHit.outward
   });
 
@@ -752,25 +768,6 @@ function attachDrag(el){
     document.addEventListener("mouseup",up);
   }
 }
-
-document.addEventListener('mousedown', (e) => {
-  const isShape =
-    e.target.classList.contains('canvas-shape') ||
-    e.target.classList.contains('fixture-shape') ||
-    e.target.closest?.('.fixture-shape');
-
-  const isPerson = e.target.id === 'personIcon';
-  const isWallCanvas = e.target.id === 'wallCanvas';
-  const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
-
-  if (!isShape && !isPerson && !isWallCanvas && !isInput) {
-    const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
-    if(oldSelected) oldSelected.classList.remove('selected');
-    selectedId = null;
-    selectedWallIndex = null;
-    redrawWalls();
-  }
-});
 
 /* =========================
    Add Room
@@ -843,15 +840,14 @@ addWindowBtn.onclick = () => {
   if (placingFixtureKind !== "Window") placingFixtureKind = null;
 };
 
-/* IMPORTANT: Place fixtures by clicking on ROOM EDGE */
+/* Place fixtures by clicking on ROOM EDGE */
 canvas.addEventListener("mousedown", (e) => {
   if (isDrawingWalls) return;
   if (!placingFixtureKind) return;
 
-  // avoid placing when clicking controls/textarea, etc.
+  // avoid placing when clicking UI
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
-  if (e.target.id === 'wallCanvas') return;
-
+  // wallCanvas covers the canvas; we still allow placing based on pointer position
   const rect = canvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
@@ -957,6 +953,7 @@ function download(blob,name){
 </script>
 </body>
 </html>
+
 
 
 
