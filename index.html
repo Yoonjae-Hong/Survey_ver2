@@ -268,10 +268,10 @@ textarea {
   </div>
 
   <label>Width (1Grid=1Meter)</label>
-  <input id="customWidth" type="number" min="1" step="0.5" value="5">
+  <input id="customWidth" type="number" min="1" step="1" value="5">
 
   <label>Length (1Grid=1Meter)</label>
-  <input id="customHeight" type="number" min="1" step="0.5" value="3">
+  <input id="customHeight" type="number" min="1" step="1" value="3">
 
   <button id="addRoomBtn" class="btn btn-secondary">Add Room</button>
   
@@ -493,7 +493,7 @@ function redrawWalls() {
 }
 
 function snapToGrid(val) {
-  return Math.round(val / (GRID / 2)) * (GRID / 2); // 0.5 grid units
+  return Math.round(val / GRID) * GRID; // 1 grid unit
 }
 
 // Helper function to check if point is near a line segment
@@ -696,8 +696,8 @@ function attachDrag(el){
     function move(ev){
       let nx=ix+(ev.clientX-sx);
       let ny=iy+(ev.clientY-sy);
-      nx=Math.round(nx/(GRID/2))*(GRID/2);
-      ny=Math.round(ny/(GRID/2))*(GRID/2);
+      nx=Math.round(nx/GRID)*GRID;
+      ny=Math.round(ny/GRID)*GRID;
       el.style.left=nx+"px";
       el.style.top=ny+"px";
       const s=shapes.find(o=>o.id===selectedId);
@@ -731,8 +731,8 @@ document.addEventListener('mousedown', (e) => {
 
 addRoomBtn.onclick = () => {
   const type = customRoomType.value;
-  const widthInMeters = +customWidth.value;
-  const heightInMeters = +customHeight.value;
+  const widthInMeters = Math.floor(+customWidth.value); // Integer only
+  const heightInMeters = Math.floor(+customHeight.value); // Integer only
   const w = widthInMeters * GRID;
   const h = heightInMeters * GRID;
   let label = type;
