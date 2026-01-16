@@ -11,7 +11,6 @@
 }
 
 body { margin:0; background:#f5f5f7; }
-
 .app-container { display:flex; flex-direction:column; height:100vh; }
 
 .header { padding:12px 20px; background:#fff; border-bottom:1px solid #ddd; }
@@ -89,6 +88,8 @@ body { margin:0; background:#f5f5f7; }
   background-size:20px 20px;
   overflow:hidden;
 }
+
+/* Outline drawing kept (optional) */
 .canvas.drawing-mode{ cursor:crosshair; }
 .canvas.drawing-mode .person-icon,
 .canvas.drawing-mode .canvas-shape,
@@ -155,13 +156,13 @@ body { margin:0; background:#f5f5f7; }
   pointer-events:auto;
   transform-origin:center center;
 }
-.fixture-shape.selected{
-  box-shadow:0 0 0 2px #2563eb;
-}
+.fixture-shape.selected{ box-shadow:0 0 0 2px #2563eb; }
+
+/* Window: black rectangle, sharp corners */
 .fixture-window{
-  border:1px solid rgba(0,0,0,0.45);
-  background:rgba(59,130,246,0.18);
-  border-radius:0;             /* <- sharp corners */
+  border:2px solid #111;
+  background:transparent;
+  border-radius:0;
 }
 
 /* RIGHT */
@@ -222,12 +223,12 @@ textarea{
 
   <hr style="margin:16px 0;">
 
-  <h3>Add Door / Window</h3>
-  <button id="addDoorBtn" class="btn btn-secondary">Add Door (Inward)</button>
+  <h3>Add Door / Window (on Room Edge)</h3>
+  <button id="addDoorBtn" class="btn btn-secondary">Add Door (Outward)</button>
   <button id="addWindowBtn" class="btn btn-secondary" style="margin-top:6px;">Add Window (2×0.5)</button>
   <div style="margin-top:10px; font-size:12px; color:#444; line-height:1.4;">
-    • Click a button, then click an <b>outline edge</b> OR <b>inside a room</b> to place it.<br>
-    • Auto-rotates by edge direction; door arc opens <b>inward</b>.
+    • Click a button, then click <b>ON a room edge</b> to place it.<br>
+    • Doors open <b>outward</b> from the room.
   </div>
 
   <hr style="margin:16px 0;">
@@ -255,13 +256,11 @@ textarea{
         </div>
       </li>
       <li>
-        <b>[Step 2]</b> <b>Outline the boundary</b> (optional if you place fixtures on rooms).
-        <div style="color:#666;">
-          • Close shape by clicking the first point again.<br>
-          • Select outline and press <b>Delete</b> to remove.
-        </div>
+        <b>[Step 2]</b> <b>Add doors/windows</b> by clicking <b>on a room edge</b>.
       </li>
-      <li><b>[Step 3]</b> Describe your layout in the Text Panel.</li>
+      <li>
+        <b>[Step 3]</b> (Optional) Outline boundary using drawing tool.
+      </li>
       <li><b>[Step 4]</b> Press <b>Save All</b> to download PNG/JSON/TXT.</li>
     </ul>
   </div>
@@ -298,8 +297,11 @@ textarea{
    Config
 ========================= */
 const GRID = 20;               // 1 grid = 1 meter
-const WALL_THICKNESS_PX = 6;   // offset by wall thickness (px)
+const WALL_THICKNESS_PX = 6;   // offset by wall thickness
 const OFFSET_PX = WALL_THICKNESS_PX / 2;
+
+// How close you must click to a room edge to place a fixture
+const EDGE_CLICK_THRESHOLD_PX = 12;
 
 const COLORS = {
   "Living Room":"rgba(239,68,68,0.4)",
@@ -321,7 +323,7 @@ let shapes = [];
 let selectedId = null;
 let idCounter = 1;
 
-/* Outline */
+/* Outline (optional) */
 let isDrawingWalls = false;
 let allWalls = [];
 let currentWall = [];
@@ -332,11 +334,13 @@ let selectedWallIndex = null;
 let placingFixtureKind = null; // "Door" | "Window" | null
 
 /* =========================
-   UI small helpers
+   UI helpers
 ========================= */
 customRoomType.onchange = () => {
   labelContainer.style.display = customRoomType.value === "Others" ? "block" : "none";
 };
+
+function snapToGrid(val) { return Math.round(val / GRID) * GRID; }
 
 function resizeWallCanvas() {
   const rect = canvas.getBoundingClientRect();
@@ -362,12 +366,8 @@ window.onload = () => {
 
 window.addEventListener('resize', resizeWallCanvas);
 
-function snapToGrid(val) {
-  return Math.round(val / GRID) * GRID;
-}
-
 /* =========================
-   Outline drawing
+   Outline drawing (unchanged, optional)
 ========================= */
 function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
@@ -427,10 +427,114 @@ function redrawWalls() {
   }
 }
 
+drawWallBtn.onclick = () => {
+  placingFixtureKind = null;
+  addDoorBtn.classList.remove("active");
+  addWindowBtn.classList.remove("active");
+
+  isDrawingWalls = !isDrawingWalls;
+
+  if (isDrawingWalls) {
+    currentWall = [];
+    tempPoint = null;
+    selectedWallIndex = null;
+    redrawWalls();
+
+    drawWallBtn.textContent = 'Stop Drawing';
+    drawWallBtn.classList.add('active');
+    canvas.classList.add('drawing-mode');
+  } else {
+    if (currentWall.length > 0) allWalls.push([...currentWall]);
+    currentWall = [];
+
+    drawWallBtn.textContent = 'Start Drawing';
+    drawWallBtn.classList.remove('active');
+    canvas.classList.remove('drawing-mode');
+    tempPoint = null;
+    redrawWalls();
+  }
+};
+
+clearWallsBtn.onclick = () => {
+  if (!confirm("Clear all outlines?")) return;
+  allWalls = [];
+  currentWall = [];
+  tempPoint = null;
+  selectedWallIndex = null;
+  redrawWalls();
+};
+
+wallCanvas.addEventListener('mousedown', (e) => {
+  // outline drawing only
+  if (!isDrawingWalls) return;
+
+  const rect = wallCanvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  const x = snapToGrid(clickX);
+  const y = snapToGrid(clickY);
+
+  if (currentWall.length > 2) {
+    const firstPoint = currentWall[0];
+    const distance = Math.sqrt((x-firstPoint.x)**2 + (y-firstPoint.y)**2);
+    if (distance < GRID) {
+      currentWall.push({ x: firstPoint.x, y: firstPoint.y });
+      allWalls.push([...currentWall]);
+      currentWall = [];
+
+      isDrawingWalls = false;
+      drawWallBtn.textContent = 'Start Drawing';
+      drawWallBtn.classList.remove('active');
+      canvas.classList.remove('drawing-mode');
+      tempPoint = null;
+      redrawWalls();
+      return;
+    }
+  }
+
+  currentWall.push({ x, y });
+  redrawWalls();
+});
+
+wallCanvas.onmousemove = (e) => {
+  if (!isDrawingWalls || currentWall.length === 0) return;
+  const rect = wallCanvas.getBoundingClientRect();
+  tempPoint = {
+    x: snapToGrid(e.clientX - rect.left),
+    y: snapToGrid(e.clientY - rect.top)
+  };
+  redrawWalls();
+};
+
+wallCanvas.ondblclick = (e) => {
+  if (!isDrawingWalls) return;
+  e.preventDefault();
+  if (currentWall.length > 0) allWalls.push([...currentWall]);
+  currentWall = [];
+
+  isDrawingWalls = false;
+  drawWallBtn.textContent = 'Start Drawing';
+  drawWallBtn.classList.remove('active');
+  canvas.classList.remove('drawing-mode');
+  tempPoint = null;
+  redrawWalls();
+};
+
 /* =========================
-   Geometry helpers
+   Room edge detection
 ========================= */
-function distanceToLineSegment(px, py, x1, y1, x2, y2) {
+function roomEdges(room) {
+  const L = room.x, T = room.y, R = room.x + room.width, B = room.y + room.height;
+  return [
+    { edge:"Left",   p1:{x:L,y:T}, p2:{x:L,y:B}, outward:{x:-1,y: 0}, angleDeg: 90 }, // tangent down
+    { edge:"Right",  p1:{x:R,y:T}, p2:{x:R,y:B}, outward:{x: 1,y: 0}, angleDeg: 90 },
+    { edge:"Top",    p1:{x:L,y:T}, p2:{x:R,y:T}, outward:{x: 0,y:-1}, angleDeg: 0  }, // tangent right
+    { edge:"Bottom", p1:{x:L,y:B}, p2:{x:R,y:B}, outward:{x: 0,y: 1}, angleDeg: 0  }
+  ];
+}
+
+function distanceToSegment(px, py, x1, y1, x2, y2) {
   const A = px - x1;
   const B = py - y1;
   const C = x2 - x1;
@@ -448,160 +552,41 @@ function distanceToLineSegment(px, py, x1, y1, x2, y2) {
 
   const dx = px - xx;
   const dy = py - yy;
-  return { dist: Math.sqrt(dx*dx + dy*dy), closest: {x: xx, y: yy} };
+  return { dist: Math.hypot(dx, dy), closest: {x: xx, y: yy} };
 }
 
-function norm(vx, vy) {
-  const len = Math.hypot(vx, vy) || 1;
-  return {x: vx/len, y: vy/len};
-}
-
-/* Point-in-polygon for closed outline polyline (first==last recommended) */
-function pointInPolygon(pt, poly) {
-  // ray-casting
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].x, yi = poly[i].y;
-    const xj = poly[j].x, yj = poly[j].y;
-    const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
-      (pt.x < (xj - xi) * (pt.y - yi) / ((yj - yi) || 1e-9) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-function isClosedWall(wall) {
-  if (!wall || wall.length < 3) return false;
-  const a = wall[0], b = wall[wall.length - 1];
-  return (Math.abs(a.x - b.x) < 1e-6) && (Math.abs(a.y - b.y) < 1e-6);
-}
-
-/* Find nearest outline segment to click (returns tangent + two candidate normals) */
-function findNearestOutlineSegment(clickX, clickY) {
+function findRoomEdgeNearClick(clickX, clickY) {
+  const rooms = shapes.filter(s => s.kind === "Room");
   let best = null;
 
-  for (let wi = 0; wi < allWalls.length; wi++) {
-    const wall = allWalls[wi];
-    for (let si = 0; si < wall.length - 1; si++) {
-      const p1 = wall[si], p2 = wall[si+1];
-      const r = distanceToLineSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
+  for (let i = 0; i < rooms.length; i++) {
+    const r = rooms[i];
+    const edges = roomEdges(r);
 
-      if (!best || r.dist < best.dist) {
-        const tx = p2.x - p1.x;
-        const ty = p2.y - p1.y;
-        const t = norm(tx, ty);
-        // normals (left/right in screen coords)
-        const n1 = { x: -t.y, y:  t.x };
-        const n2 = { x: -n1.x, y: -n1.y };
-
-        const angleDeg = Math.atan2(t.y, t.x) * 180 / Math.PI;
-
-        best = {
-          kind: "Outline",
-          wallIndex: wi,
-          segIndex: si,
-          p1, p2,
-          closest: r.closest,
-          dist: r.dist,
-          t,
-          n1, n2,
-          angleDeg,
-          wall: wall
-        };
+    for (const e of edges) {
+      const res = distanceToSegment(clickX, clickY, e.p1.x, e.p1.y, e.p2.x, e.p2.y);
+      if (res.dist <= EDGE_CLICK_THRESHOLD_PX) {
+        if (!best || res.dist < best.dist) {
+          best = {
+            roomId: r.id,
+            roomLabel: r.label,
+            edge: e.edge,
+            closest: res.closest,
+            dist: res.dist,
+            outward: e.outward,
+            angleDeg: e.angleDeg,
+            room: r
+          };
+        }
       }
     }
   }
   return best;
 }
 
-/* Determine which normal points inward for outline */
-function inwardNormalForOutline(seg) {
-  // If we have a closed outline for that wall polyline: test midpoint shifted along n1/n2
-  const wall = seg.wall;
-  if (isClosedWall(wall)) {
-    const mid = { x: seg.closest.x, y: seg.closest.y };
-    const eps = 8; // px
-    const test1 = { x: mid.x + seg.n1.x * eps, y: mid.y + seg.n1.y * eps };
-    const test2 = { x: mid.x + seg.n2.x * eps, y: mid.y + seg.n2.y * eps };
-    const in1 = pointInPolygon(test1, wall);
-    const in2 = pointInPolygon(test2, wall);
-    if (in1 && !in2) return seg.n1;
-    if (in2 && !in1) return seg.n2;
-    // ambiguous: fallback to n1
-    return seg.n1;
-  }
-
-  // If not closed: fallback to n1
-  return seg.n1;
-}
-
-/* Find room under click + nearest room edge segment + inward normal */
-function findRoomEdgeFromClick(clickX, clickY) {
-  // shapes store x,y,width,height in px (top-left)
-  const rooms = shapes.filter(s => s.kind === "Room");
-  // pick topmost room under point (last added tends to be on top)
-  for (let i = rooms.length - 1; i >= 0; i--) {
-    const r = rooms[i];
-    const left = r.x, top = r.y, right = r.x + r.width, bottom = r.y + r.height;
-    if (clickX >= left && clickX <= right && clickY >= top && clickY <= bottom) {
-      // nearest edge by distance
-      const dLeft = Math.abs(clickX - left);
-      const dRight = Math.abs(right - clickX);
-      const dTop = Math.abs(clickY - top);
-      const dBottom = Math.abs(bottom - clickY);
-
-      const minD = Math.min(dLeft, dRight, dTop, dBottom);
-
-      let p1, p2, inward;
-      if (minD === dLeft) {
-        // left edge, tangent down, inward +x
-        p1 = {x:left, y:top}; p2 = {x:left, y:bottom};
-        inward = {x: 1, y: 0};
-      } else if (minD === dRight) {
-        p1 = {x:right, y:top}; p2 = {x:right, y:bottom};
-        inward = {x:-1, y: 0};
-      } else if (minD === dTop) {
-        p1 = {x:left, y:top}; p2 = {x:right, y:top};
-        inward = {x: 0, y: 1};
-      } else {
-        p1 = {x:left, y:bottom}; p2 = {x:right, y:bottom};
-        inward = {x: 0, y:-1};
-      }
-
-      // closest point on that edge
-      const rr = distanceToLineSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
-      const tx = p2.x - p1.x;
-      const ty = p2.y - p1.y;
-      const t = norm(tx, ty);
-      const angleDeg = Math.atan2(t.y, t.x) * 180 / Math.PI;
-
-      return {
-        kind: "RoomEdge",
-        roomId: r.id,
-        roomLabel: r.label,
-        p1, p2,
-        closest: rr.closest,
-        t,
-        inward,            // already inward for room
-        angleDeg
-      };
-    }
-  }
-  return null;
-}
-
 /* =========================
-   Doors / Windows rendering
+   Door / Window rendering
 ========================= */
-/*
-Door base convention:
-- Container is 1x1 grid square.
-- Local +x is along wall tangent
-- Local +y is "interior" direction
-We draw hinge at top-left, leaf down, arc sweeping down-right.
-If interior normal corresponds to local +y => no flip
-Else flipY => opens the other side
-*/
 function createDoorSVG(sizePx) {
   const s = sizePx;
   const stroke = 2.5;
@@ -644,32 +629,26 @@ function createDoorSVG(sizePx) {
   return svg;
 }
 
-/* Decide whether we need flipY so that door opens inward */
-function computeFlipYFromInwardNormal(angleDeg, inwardNormal) {
-  // Local normal for +y after rotation(angle): n_local = (-sin, cos)
-  const a = angleDeg * Math.PI / 180;
-  const nLocal = { x: -Math.sin(a), y:  Math.cos(a) }; // corresponds to local +y in world coords
+/*
+Outward opening:
+- We offset OUTWARD from the room by OFFSET_PX
+- We also flip the door arc so it swings outward relative to the room interior.
+Given we use a fixed SVG that swings "down-right" in its local coordinates,
+we can use scaleY(-1) in combination with outward vector to make it swing outward consistently.
+Simpler: treat outward as "interior normal" would be -outward. So flipY is always -1 compared to inward.
+We will:
+  - rotate by angleDeg (edge tangent)
+  - scaleY(-1) ALWAYS (because our SVG is drawn as inward swing in local +y; outward is -y)
+*/
+function placeFixtureOnRoomEdge(kind, edgeHit) {
+  const baseCx = snapToGrid(edgeHit.closest.x);
+  const baseCy = snapToGrid(edgeHit.closest.y);
 
-  // If inwardNormal aligns with nLocal => no flip
-  const dot = inwardNormal.x * nLocal.x + inwardNormal.y * nLocal.y;
-  return (dot >= 0) ? 1 : -1; // -1 means flipY
-}
+  // outward offset
+  const cx = baseCx + edgeHit.outward.x * OFFSET_PX;
+  const cy = baseCy + edgeHit.outward.y * OFFSET_PX;
 
-/* Place fixture from an "edge descriptor" (outline segment or room edge) */
-function placeFixture(kind, edgeDesc) {
-  // choose inward normal
-  let inward;
-  if (edgeDesc.kind === "Outline") inward = inwardNormalForOutline(edgeDesc);
-  else inward = edgeDesc.inward; // room edge already provides inward
-
-  // center point on edge (snapped) + offset inward by wall thickness
-  const baseCx = snapToGrid(edgeDesc.closest.x);
-  const baseCy = snapToGrid(edgeDesc.closest.y);
-
-  const cx = baseCx + inward.x * OFFSET_PX;
-  const cy = baseCy + inward.y * OFFSET_PX;
-
-  const angleDeg = edgeDesc.angleDeg;
+  const angleDeg = edgeHit.angleDeg;
 
   let wM, hM, wPx, hPx;
   if (kind === "Door") {
@@ -687,24 +666,24 @@ function placeFixture(kind, edgeDesc) {
   d.dataset.id = id;
   d.dataset.kind = kind;
 
+  // base placement (by center)
   d.style.width = wPx + "px";
   d.style.height = hPx + "px";
   d.style.left = (cx - wPx/2) + "px";
   d.style.top  = (cy - hPx/2) + "px";
 
   if (kind === "Door") {
-    // door is square, ignore non-square size
+    // door is 1x1 grid square
     d.style.width = GRID + "px";
     d.style.height = GRID + "px";
     d.style.left = (cx - GRID/2) + "px";
     d.style.top  = (cy - GRID/2) + "px";
 
-    const flipY = computeFlipYFromInwardNormal(angleDeg, inward);
-    d.style.transform = `rotate(${angleDeg}deg) scaleY(${flipY})`;
-
+    // Outward swing: flipY(-1)
+    d.style.transform = `rotate(${angleDeg}deg) scaleY(-1)`;
     d.appendChild(createDoorSVG(GRID));
   } else {
-    // Window: sharp rectangle, just rotate to match edge direction
+    // Window: sharp black rectangle
     d.style.transform = `rotate(${angleDeg}deg)`;
   }
 
@@ -721,10 +700,12 @@ function placeFixture(kind, edgeDesc) {
     widthInMeters: wM,
     heightInMeters: hM,
     rotationDeg: angleDeg,
-    inwardNormal: inward,
-    attachedTo: edgeDesc.kind === "Outline"
-      ? { type:"Outline", wallIndex: edgeDesc.wallIndex, segIndex: edgeDesc.segIndex }
-      : { type:"Room", roomId: edgeDesc.roomId, edge: edgeDesc }
+    attachedTo: {
+      type: "RoomEdge",
+      roomId: edgeHit.roomId,
+      edge: edgeHit.edge
+    },
+    outwardNormal: edgeHit.outward
   });
 
   attachDrag(d);
@@ -732,186 +713,12 @@ function placeFixture(kind, edgeDesc) {
 }
 
 /* =========================
-   Buttons
-========================= */
-drawWallBtn.onclick = () => {
-  placingFixtureKind = null;
-  addDoorBtn.classList.remove("active");
-  addWindowBtn.classList.remove("active");
-
-  isDrawingWalls = !isDrawingWalls;
-
-  if (isDrawingWalls) {
-    currentWall = [];
-    tempPoint = null;
-    selectedWallIndex = null;
-    redrawWalls();
-
-    drawWallBtn.textContent = 'Stop Drawing';
-    drawWallBtn.classList.add('active');
-    canvas.classList.add('drawing-mode');
-  } else {
-    if (currentWall.length > 0) allWalls.push([...currentWall]);
-    currentWall = [];
-
-    drawWallBtn.textContent = 'Start Drawing';
-    drawWallBtn.classList.remove('active');
-    canvas.classList.remove('drawing-mode');
-    tempPoint = null;
-    redrawWalls();
-  }
-};
-
-addDoorBtn.onclick = () => {
-  if (isDrawingWalls) return;
-  placingFixtureKind = (placingFixtureKind === "Door") ? null : "Door";
-  addDoorBtn.classList.toggle("active", placingFixtureKind === "Door");
-  addWindowBtn.classList.remove("active");
-  if (placingFixtureKind !== "Door") placingFixtureKind = null;
-};
-
-addWindowBtn.onclick = () => {
-  if (isDrawingWalls) return;
-  placingFixtureKind = (placingFixtureKind === "Window") ? null : "Window";
-  addWindowBtn.classList.toggle("active", placingFixtureKind === "Window");
-  addDoorBtn.classList.remove("active");
-  if (placingFixtureKind !== "Window") placingFixtureKind = null;
-};
-
-clearWallsBtn.onclick = () => {
-  if (!confirm("Clear all outlines?")) return;
-  allWalls = [];
-  currentWall = [];
-  tempPoint = null;
-  selectedWallIndex = null;
-  redrawWalls();
-};
-
-/* =========================
-   wallCanvas events
-========================= */
-wallCanvas.addEventListener('mousedown', (e) => {
-  const rect = wallCanvas.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const clickY = e.clientY - rect.top;
-
-  // placing fixture: prefer outline if near; else allow room interior click
-  if (!isDrawingWalls && placingFixtureKind) {
-    // 1) try outline segment near click
-    const seg = (allWalls.length > 0) ? findNearestOutlineSegment(clickX, clickY) : null;
-    const nearOutline = seg && seg.dist <= 18;
-
-    if (nearOutline) {
-      placeFixture(placingFixtureKind, seg);
-      placingFixtureKind = null;
-      addDoorBtn.classList.remove("active");
-      addWindowBtn.classList.remove("active");
-      return;
-    }
-
-    // 2) fallback: room interior click => nearest room edge
-    const roomEdge = findRoomEdgeFromClick(clickX, clickY);
-    if (roomEdge) {
-      placeFixture(placingFixtureKind, roomEdge);
-      placingFixtureKind = null;
-      addDoorBtn.classList.remove("active");
-      addWindowBtn.classList.remove("active");
-      return;
-    }
-
-    alert("Click near an outline edge, or click inside a room to place the fixture.");
-    return;
-  }
-
-  // Not drawing: select wall if clicked near
-  if (!isDrawingWalls) {
-    const threshold = 15;
-    let clickedWallIndex = null;
-    for (let i = 0; i < allWalls.length; i++) {
-      const wall = allWalls[i];
-      for (let j = 0; j < wall.length - 1; j++) {
-        const r = distanceToLineSegment(clickX, clickY, wall[j].x, wall[j].y, wall[j+1].x, wall[j+1].y);
-        if (r.dist < threshold) { clickedWallIndex = i; break; }
-      }
-      if (clickedWallIndex !== null) break;
-    }
-
-    if (clickedWallIndex !== null) {
-      const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
-      if(oldSelected) oldSelected.classList.remove('selected');
-      selectedId = null;
-
-      selectedWallIndex = clickedWallIndex;
-      redrawWalls();
-      e.stopPropagation();
-    } else {
-      const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
-      if(oldSelected) oldSelected.classList.remove('selected');
-      selectedId = null;
-      selectedWallIndex = null;
-      redrawWalls();
-    }
-    return;
-  }
-
-  // Drawing mode
-  const x = snapToGrid(clickX);
-  const y = snapToGrid(clickY);
-
-  if (currentWall.length > 2) {
-    const firstPoint = currentWall[0];
-    const distance = Math.sqrt((x-firstPoint.x)**2 + (y-firstPoint.y)**2);
-
-    if (distance < GRID) {
-      currentWall.push({ x: firstPoint.x, y: firstPoint.y });
-      allWalls.push([...currentWall]);
-      currentWall = [];
-
-      isDrawingWalls = false;
-      drawWallBtn.textContent = 'Start Drawing';
-      drawWallBtn.classList.remove('active');
-      canvas.classList.remove('drawing-mode');
-      tempPoint = null;
-      redrawWalls();
-      return;
-    }
-  }
-
-  currentWall.push({ x, y });
-  redrawWalls();
-});
-
-wallCanvas.ondblclick = (e) => {
-  if (!isDrawingWalls) return;
-  e.preventDefault();
-  if (currentWall.length > 0) allWalls.push([...currentWall]);
-  currentWall = [];
-
-  isDrawingWalls = false;
-  drawWallBtn.textContent = 'Start Drawing';
-  drawWallBtn.classList.remove('active');
-  canvas.classList.remove('drawing-mode');
-  tempPoint = null;
-  redrawWalls();
-};
-
-wallCanvas.onmousemove = (e) => {
-  if (!isDrawingWalls || currentWall.length === 0) return;
-  const rect = wallCanvas.getBoundingClientRect();
-  tempPoint = {
-    x: snapToGrid(e.clientX - rect.left),
-    y: snapToGrid(e.clientY - rect.top)
-  };
-  redrawWalls();
-};
-
-/* =========================
    Drag + selection
 ========================= */
 function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
-    if (placingFixtureKind) return; // placing mode: block dragging
+    if (placingFixtureKind) return; // placing mode: disable dragging
     e.preventDefault();
     e.stopPropagation();
 
@@ -1018,6 +825,51 @@ addRoomBtn.onclick = () => {
 };
 
 /* =========================
+   Door/Window placing mode
+========================= */
+addDoorBtn.onclick = () => {
+  if (isDrawingWalls) return;
+  placingFixtureKind = (placingFixtureKind === "Door") ? null : "Door";
+  addDoorBtn.classList.toggle("active", placingFixtureKind === "Door");
+  addWindowBtn.classList.remove("active");
+  if (placingFixtureKind !== "Door") placingFixtureKind = null;
+};
+
+addWindowBtn.onclick = () => {
+  if (isDrawingWalls) return;
+  placingFixtureKind = (placingFixtureKind === "Window") ? null : "Window";
+  addWindowBtn.classList.toggle("active", placingFixtureKind === "Window");
+  addDoorBtn.classList.remove("active");
+  if (placingFixtureKind !== "Window") placingFixtureKind = null;
+};
+
+/* IMPORTANT: Place fixtures by clicking on ROOM EDGE */
+canvas.addEventListener("mousedown", (e) => {
+  if (isDrawingWalls) return;
+  if (!placingFixtureKind) return;
+
+  // avoid placing when clicking controls/textarea, etc.
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+  if (e.target.id === 'wallCanvas') return;
+
+  const rect = canvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  const edgeHit = findRoomEdgeNearClick(clickX, clickY);
+  if (!edgeHit) {
+    alert("Click close to a ROOM EDGE to place the fixture.");
+    return;
+  }
+
+  placeFixtureOnRoomEdge(placingFixtureKind, edgeHit);
+
+  placingFixtureKind = null;
+  addDoorBtn.classList.remove("active");
+  addWindowBtn.classList.remove("active");
+}, true);
+
+/* =========================
    Delete / Clear / Save
 ========================= */
 document.onkeydown = e=>{
@@ -1068,7 +920,6 @@ saveBtn.onclick=async()=>{
     return alert(`Please write at least 150 words. Current word count: ${wordCount}`);
   }
 
-  // outline optional now (as you wanted)
   const layoutData = shapes
     .filter(s=>!s.isPerson)
     .map(s=>({
@@ -1080,8 +931,8 @@ saveBtn.onclick=async()=>{
       width: (s.widthInMeters ?? (s.width/GRID))*100,
       height: (s.heightInMeters ?? (s.height/GRID))*100,
       rotationDeg: s.rotationDeg ?? 0,
-      inwardNormal: s.inwardNormal ?? null,
-      attachedTo: s.attachedTo ?? null
+      attachedTo: s.attachedTo ?? null,
+      outwardNormal: s.outwardNormal ?? null
     }));
 
   const exteriorData = allWalls.map(wall =>
@@ -1106,5 +957,6 @@ function download(blob,name){
 </script>
 </body>
 </html>
+
 
 
