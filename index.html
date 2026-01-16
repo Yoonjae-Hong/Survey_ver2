@@ -380,14 +380,13 @@ document.addEventListener('mousedown', (e) => {
     e.target.closest?.('.fixture-shape');
 
   const isPerson = e.target.id === 'personIcon';
-  const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
 
-  // If not clicking on a selectable entity or UI, deselect
-  if (!isShape && !isPerson && !isInput) {
-    // NOTE: wallCanvas clicks should also deselect -> no longer excluded
+  // ✅ UI(입력칸/버튼) 클릭도 포함해서, "도형/사람이 아니면" 무조건 선택해제
+  if (!isShape && !isPerson) {
     deselectAll();
   }
 }, true);
+
 
 /* =========================
    Outline drawing (optional)
@@ -751,15 +750,23 @@ function attachDrag(el){
     const ix=parseFloat(el.style.left), iy=parseFloat(el.style.top);
 
     function move(ev){
-      let nx=ix+(ev.clientX-sx);
-      let ny=iy+(ev.clientY-sy);
-      nx=Math.round(nx/GRID)*GRID;
-      ny=Math.round(ny/GRID)*GRID;
-      el.style.left=nx+"px";
-      el.style.top=ny+"px";
-      const s=shapes.find(o=>o.id===selectedId);
-      if(s){ s.x=nx; s.y=ny; }
+      let nx = ix + (ev.clientX - sx);
+      let ny = iy + (ev.clientY - sy);
+
+      // ✅ Window만 0.5 grid 단위(= GRID/2)로 스냅
+      const kind = el.dataset?.kind; // "Door" | "Window" | undefined(room/person)
+      const step = (kind === "Window") ? (GRID / 2) : GRID;
+
+      nx = Math.round(nx / step) * step;
+      ny = Math.round(ny / step) * step;
+
+      el.style.left = nx + "px";
+      el.style.top  = ny + "px";
+
+      const s = shapes.find(o => o.id === selectedId);
+      if (s) { s.x = nx; s.y = ny; }
     }
+
     function up(){
       document.removeEventListener("mousemove",move);
       document.removeEventListener("mouseup",up);
