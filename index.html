@@ -665,8 +665,10 @@ function placeFixtureOnRoomEdge(kind, edgeHit) {
   const baseCx = snapToGrid(edgeHit.closest.x);
   const baseCy = snapToGrid(edgeHit.closest.y);
 
-  const cx = baseCx + edgeHit.outward.x * OFFSET_PX;
-  const cy = baseCy + edgeHit.outward.y * OFFSET_PX;
+  // ✅ place INSIDE the room edge (offset inward)
+  const cx = baseCx - edgeHit.outward.x * OFFSET_PX;
+  const cy = baseCy - edgeHit.outward.y * OFFSET_PX;
+
 
   const angleDeg = edgeHit.angleDeg;
 
