@@ -219,31 +219,31 @@ body {
   box-shadow:0 0 0 2px #2563eb;
 }
 
-/* ---------- Door / Window (1 grid fixtures) ---------- */
+/* ---------- Fixtures (Door / Window) ---------- */
 .fixture-shape{
   position:absolute;
-  border:1px solid rgba(0,0,0,0.35);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:10px;
   cursor:move;
   user-select:none;
   z-index:16;
   pointer-events:auto;
-  border-radius:6px;
+  transform-origin:center center;
 }
 
 .fixture-shape.selected{
   box-shadow:0 0 0 2px #2563eb;
+  border-radius:8px;
 }
 
-.fixture-door{
-  background:rgba(34,197,94,0.35);
-}
-
+/* Window look */
 .fixture-window{
-  background:rgba(59,130,246,0.25);
+  border:1px solid rgba(0,0,0,0.35);
+  border-radius:6px;
+  background:rgba(59,130,246,0.18);
+}
+
+/* Door container (SVG inside) */
+.fixture-door{
+  /* door는 테두리 없는 대신 SVG 선으로 표현 */
 }
 
 /* ---------- RIGHT (Notes) ---------- */
@@ -306,8 +306,12 @@ textarea {
   <hr style="margin:16px 0;">
 
   <h3>Add Door / Window</h3>
-  <button id="addDoorBtn" class="btn btn-secondary">Add Door (1 Grid)</button>
-  <button id="addWindowBtn" class="btn btn-secondary" style="margin-top:6px;">Add Window (1 Grid)</button>
+  <button id="addDoorBtn" class="btn btn-secondary">Add Door (Arc)</button>
+  <button id="addWindowBtn" class="btn btn-secondary" style="margin-top:6px;">Add Window (2×0.5)</button>
+  <div style="margin-top:10px; font-size:12px; color:#444; line-height:1.4;">
+    • Click a button, then <b>click on an outline edge</b> to place it.<br>
+    • It auto-rotates based on the edge direction.
+  </div>
 
   <hr style="margin:16px 0;">
 
@@ -331,7 +335,7 @@ textarea {
     <b>Add</b> rooms using the menu on the left and <b>drag</b> them into position to design your ideal floor plan.
     <div style="color: #666;">
       • The human icon represents a height of 180 cm for scale.<br>
-      • To remove a room, select it and press the <b>Delete</b> key.
+      • To remove a room/fixture, select it and press the <b>Delete</b> key.
     </div>
   </li>
 
@@ -393,7 +397,7 @@ textarea {
 
 <script>
 const GRID = 20; // 1 grid = 1 meter
-const METER_TO_PX = 20; // 1 meter = 20 pixels
+const METER_TO_PX = 20;
 
 const COLORS = {
   "Living Room":"rgba(239,68,68,0.4)",
@@ -404,12 +408,6 @@ const COLORS = {
   "Bathroom":"rgba(167,139,250,0.4)",
   "Storage":"rgba(244,114,182,0.4)",
   "Others":"rgba(156,163,175,0.4)"
-};
-
-// Door/Window colors
-const FIXTURE_COLORS = {
-  Door: "rgba(34,197,94,0.35)",
-  Window: "rgba(59,130,246,0.25)",
 };
 
 const canvas = document.getElementById("canvas");
@@ -423,10 +421,13 @@ let idCounter = 1;
 
 // Wall drawing variables
 let isDrawingWalls = false;
-let allWalls = []; // Store all completed walls
-let currentWall = []; // Current wall being drawn
+let allWalls = [];      // array of polylines (each polyline: [{x,y},...])
+let currentWall = [];
 let tempPoint = null;
-let selectedWallIndex = null; // Track selected wall for deletion
+let selectedWallIndex = null;
+
+// Fixture placing mode
+let placingFixtureKind = null; // "Door" | "Window" | null
 
 // Show/hide custom label input
 customRoomType.onchange = () => {
@@ -445,7 +446,6 @@ window.onload = () => {
   resizeWallCanvas();
 
   const rect = canvas.getBoundingClientRect();
-  // Person is 1.8m tall = 36px (1.8 * 20), width is 20px (1m)
   let x = rect.width/2 - 10;
   let y = rect.height/2 - 18;
   x = Math.round(x/GRID)*GRID;
@@ -463,10 +463,9 @@ window.addEventListener('resize', resizeWallCanvas);
 function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
 
-  // Draw all completed walls
+  // Draw completed walls
   allWalls.forEach((wall, index) => {
     if (wall.length >= 2) {
-      // Highlight selected wall
       const isSelected = selectedWallIndex === index;
 
       wallCtx.strokeStyle = isSelected ? '#2563eb' : '#1f2937';
@@ -476,15 +475,10 @@ function redrawWalls() {
 
       wallCtx.beginPath();
       wallCtx.moveTo(wall[0].x, wall[0].y);
-
-      for (let i = 1; i < wall.length; i++) {
-        wallCtx.lineTo(wall[i].x, wall[i].y);
-      }
-
+      for (let i = 1; i < wall.length; i++) wallCtx.lineTo(wall[i].x, wall[i].y);
       wallCtx.stroke();
     }
 
-    // Draw points for completed walls
     wallCtx.fillStyle = selectedWallIndex === index ? '#2563eb' : '#ef4444';
     wall.forEach(p => {
       wallCtx.beginPath();
@@ -493,7 +487,7 @@ function redrawWalls() {
     });
   });
 
-  // Draw current wall being drawn
+  // Current wall drawing
   if (currentWall.length >= 2) {
     wallCtx.strokeStyle = '#1f2937';
     wallCtx.lineWidth = 6;
@@ -502,15 +496,10 @@ function redrawWalls() {
 
     wallCtx.beginPath();
     wallCtx.moveTo(currentWall[0].x, currentWall[0].y);
-
-    for (let i = 1; i < currentWall.length; i++) {
-      wallCtx.lineTo(currentWall[i].x, currentWall[i].y);
-    }
-
+    for (let i = 1; i < currentWall.length; i++) wallCtx.lineTo(currentWall[i].x, currentWall[i].y);
     wallCtx.stroke();
   }
 
-  // Draw points for current wall
   if (currentWall.length > 0) {
     wallCtx.fillStyle = '#ef4444';
     currentWall.forEach(p => {
@@ -520,7 +509,6 @@ function redrawWalls() {
     });
   }
 
-  // Draw temporary line
   if (tempPoint && currentWall.length > 0) {
     wallCtx.strokeStyle = '#9ca3af';
     wallCtx.lineWidth = 2;
@@ -534,10 +522,10 @@ function redrawWalls() {
 }
 
 function snapToGrid(val) {
-  return Math.round(val / GRID) * GRID; // 1 grid unit
+  return Math.round(val / GRID) * GRID;
 }
 
-// Helper function to check if point is near a line segment
+/* --------- Geometry helpers for nearest segment --------- */
 function distanceToLineSegment(px, py, x1, y1, x2, y2) {
   const A = px - x1;
   const B = py - y1;
@@ -547,49 +535,65 @@ function distanceToLineSegment(px, py, x1, y1, x2, y2) {
   const dot = A * C + B * D;
   const lenSq = C * C + D * D;
   let param = -1;
-
-  if (lenSq != 0) param = dot / lenSq;
+  if (lenSq !== 0) param = dot / lenSq;
 
   let xx, yy;
-
-  if (param < 0) {
-    xx = x1;
-    yy = y1;
-  } else if (param > 1) {
-    xx = x2;
-    yy = y2;
-  } else {
-    xx = x1 + param * C;
-    yy = y1 + param * D;
-  }
+  if (param < 0) { xx = x1; yy = y1; }
+  else if (param > 1) { xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
 
   const dx = px - xx;
   const dy = py - yy;
-  return Math.sqrt(dx * dx + dy * dy);
+  return { dist: Math.sqrt(dx*dx + dy*dy), closest: {x: xx, y: yy}, t: param };
 }
 
-// Helper function to find which wall was clicked
-function findClickedWall(x, y) {
-  const threshold = 15; // Click detection threshold in pixels
-
+function findClickedWallIndex(x, y) {
+  const threshold = 15;
   for (let i = 0; i < allWalls.length; i++) {
     const wall = allWalls[i];
     for (let j = 0; j < wall.length - 1; j++) {
-      const dist = distanceToLineSegment(x, y, wall[j].x, wall[j].y, wall[j + 1].x, wall[j + 1].y);
-      if (dist < threshold) {
-        return i;
-      }
+      const r = distanceToLineSegment(x, y, wall[j].x, wall[j].y, wall[j+1].x, wall[j+1].y);
+      if (r.dist < threshold) return i;
     }
   }
   return null;
 }
 
-// Draw wall button
+function findNearestWallSegment(x, y) {
+  // returns { wallIndex, segIndex, x1,y1,x2,y2, closest:{x,y}, dist, orientation, rotationDeg }
+  let best = null;
+
+  for (let wi = 0; wi < allWalls.length; wi++) {
+    const wall = allWalls[wi];
+    for (let si = 0; si < wall.length - 1; si++) {
+      const p1 = wall[si], p2 = wall[si+1];
+      const r = distanceToLineSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+      if (!best || r.dist < best.dist) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const horizontal = Math.abs(dx) >= Math.abs(dy); // E/W
+        best = {
+          wallIndex: wi,
+          segIndex: si,
+          x1: p1.x, y1: p1.y,
+          x2: p2.x, y2: p2.y,
+          closest: r.closest,
+          dist: r.dist,
+          orientation: horizontal ? "EW" : "NS",
+          rotationDeg: horizontal ? 0 : 90
+        };
+      }
+    }
+  }
+  return best;
+}
+
+/* --------- Draw wall button --------- */
 drawWallBtn.onclick = () => {
+  placingFixtureKind = null; // stop placing fixture when drawing walls
   isDrawingWalls = !isDrawingWalls;
 
   if (isDrawingWalls) {
-    // Start new wall - deselect any selected wall
     currentWall = [];
     tempPoint = null;
     selectedWallIndex = null;
@@ -599,10 +603,7 @@ drawWallBtn.onclick = () => {
     drawWallBtn.classList.add('active');
     canvas.classList.add('drawing-mode');
   } else {
-    // Save current wall if it has points
-    if (currentWall.length > 0) {
-      allWalls.push([...currentWall]);
-    }
+    if (currentWall.length > 0) allWalls.push([...currentWall]);
     currentWall = [];
 
     drawWallBtn.textContent = 'Start Drawing';
@@ -613,30 +614,45 @@ drawWallBtn.onclick = () => {
   }
 };
 
-// Wall canvas events
+/* --------- Wall canvas events --------- */
 wallCanvas.addEventListener('mousedown', (e) => {
   const rect = wallCanvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
-  const x = snapToGrid(clickX);
-  const y = snapToGrid(clickY);
 
+  // 1) placing fixture mode: click on wall to place
+  if (!isDrawingWalls && placingFixtureKind) {
+    if (allWalls.length === 0) {
+      alert("Please draw the exterior outline first.");
+      return;
+    }
+
+    const seg = findNearestWallSegment(clickX, clickY);
+    if (!seg || seg.dist > 18) { // too far from wall
+      alert("Click closer to the outline edge to place the fixture.");
+      return;
+    }
+
+    placeFixtureOnSegment(placingFixtureKind, seg);
+    placingFixtureKind = null;
+    addDoorBtn.classList.remove("active");
+    addWindowBtn.classList.remove("active");
+    return;
+  }
+
+  // 2) not drawing: select wall
   if (!isDrawingWalls) {
-    // Not drawing mode - check if clicking on a wall to select it
-    const clickedWallIndex = findClickedWall(clickX, clickY);
+    const clickedWallIndex = findClickedWallIndex(clickX, clickY);
 
     if (clickedWallIndex !== null) {
-      // Deselect rooms/fixtures/person
       const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if(oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
 
-      // Select wall
       selectedWallIndex = clickedWallIndex;
       redrawWalls();
       e.stopPropagation();
     } else {
-      // Clicked on empty space - deselect everything
       const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if(oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
@@ -646,21 +662,18 @@ wallCanvas.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // Drawing mode - add point to current wall
-  // Check if clicked on the first point (to close the shape)
+  // 3) drawing mode: add points
+  const x = snapToGrid(clickX);
+  const y = snapToGrid(clickY);
+
   if (currentWall.length > 2) {
     const firstPoint = currentWall[0];
-    const distance = Math.sqrt(Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2));
-
+    const distance = Math.sqrt((x-firstPoint.x)**2 + (y-firstPoint.y)**2);
     if (distance < GRID) {
-      // Close the shape by connecting to first point
       currentWall.push({ x: firstPoint.x, y: firstPoint.y });
-
-      // Save the completed wall
       allWalls.push([...currentWall]);
       currentWall = [];
 
-      // Finish drawing
       isDrawingWalls = false;
       drawWallBtn.textContent = 'Start Drawing';
       drawWallBtn.classList.remove('active');
@@ -679,13 +692,9 @@ wallCanvas.ondblclick = (e) => {
   if (!isDrawingWalls) return;
   e.preventDefault();
 
-  // Save the completed wall
-  if (currentWall.length > 0) {
-    allWalls.push([...currentWall]);
-  }
+  if (currentWall.length > 0) allWalls.push([...currentWall]);
   currentWall = [];
 
-  // Finish drawing
   isDrawingWalls = false;
   drawWallBtn.textContent = 'Start Drawing';
   drawWallBtn.classList.remove('active');
@@ -696,7 +705,6 @@ wallCanvas.ondblclick = (e) => {
 
 wallCanvas.onmousemove = (e) => {
   if (!isDrawingWalls || currentWall.length === 0) return;
-
   const rect = wallCanvas.getBoundingClientRect();
   tempPoint = {
     x: snapToGrid(e.clientX - rect.left),
@@ -714,18 +722,17 @@ clearWallsBtn.onclick = () => {
   redrawWalls();
 };
 
-/* ---------- Drag + Selection ---------- */
+/* --------- Drag + Selection --------- */
 function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
+    if (placingFixtureKind) return; // placing mode에서는 드래그 방지(배치 클릭 우선)
     e.preventDefault();
     e.stopPropagation();
 
-    // Select the element when clicked
     const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
 
-    // Deselect wall when selecting a room/fixture/person
     selectedWallIndex = null;
     redrawWalls();
 
@@ -754,17 +761,16 @@ function attachDrag(el){
   }
 }
 
-// Deselect when clicking on canvas background or other areas
 document.addEventListener('mousedown', (e) => {
   const isRoomOrFixture =
     e.target.classList.contains('canvas-shape') ||
-    e.target.classList.contains('fixture-shape');
+    e.target.classList.contains('fixture-shape') ||
+    e.target.closest?.('.fixture-shape');
 
   const isPerson = e.target.id === 'personIcon';
   const isWallCanvas = e.target.id === 'wallCanvas';
   const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
 
-  // If clicked on something that's not a room/fixture, person, wall canvas, or input field
   if (!isRoomOrFixture && !isPerson && !isWallCanvas && !isInput) {
     const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
@@ -774,11 +780,15 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
-/* ---------- Add Room ---------- */
+/* --------- Add Room --------- */
 addRoomBtn.onclick = () => {
+  placingFixtureKind = null;
+  addDoorBtn.classList.remove("active");
+  addWindowBtn.classList.remove("active");
+
   const type = customRoomType.value;
-  const widthInMeters = Math.floor(+customWidth.value); // Integer only
-  const heightInMeters = Math.floor(+customHeight.value); // Integer only
+  const widthInMeters = Math.floor(+customWidth.value);
+  const heightInMeters = Math.floor(+customHeight.value);
   const w = widthInMeters * GRID;
   const h = heightInMeters * GRID;
   let label = type;
@@ -804,21 +814,101 @@ addRoomBtn.onclick = () => {
   d.style.background=COLORS[type]||COLORS.Others;
 
   canvas.appendChild(d);
-  shapes.push({id,label,x,y,width:w,height:h,widthInMeters,heightInMeters});
+  shapes.push({id,label,x,y,width:w,height:h,widthInMeters,heightInMeters, kind:"Room"});
   attachDrag(d);
 
-  // Don't auto-select the newly created room
   selectedId = null;
 };
 
-/* ---------- Add Door / Window (1 Grid) ---------- */
-function addFixture(kind){
+/* --------- Door (arc) & Window (2×0.5) placement --------- */
+addDoorBtn.onclick = () => {
   if (isDrawingWalls) return;
+  placingFixtureKind = "Door";
+  addDoorBtn.classList.add("active");
+  addWindowBtn.classList.remove("active");
+};
 
-  const size = GRID; // 1 grid
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.round((rect.width/2 - size/2)/GRID)*GRID;
-  const y = Math.round((rect.height/2 - size/2)/GRID)*GRID;
+addWindowBtn.onclick = () => {
+  if (isDrawingWalls) return;
+  placingFixtureKind = "Window";
+  addWindowBtn.classList.add("active");
+  addDoorBtn.classList.remove("active");
+};
+
+function createDoorSVG(sizePx) {
+  // Base orientation: wall direction = horizontal (E-W)
+  // Door hinge at left edge, door leaf goes down, arc is quarter circle.
+  const s = sizePx;
+  const stroke = 2.5;
+  const pad = 2;
+
+  // Path:
+  // hinge point near (pad, pad)
+  // door leaf line: from hinge to (pad, s - pad)
+  // swing arc: quarter circle centered at hinge with radius (s - pad*2)
+  const r = s - pad*2;
+  const hx = pad, hy = pad;
+
+  // Arc end point for 90deg swing downward: (hx + r, hy + r)
+  const ex = hx + r;
+  const ey = hy + r;
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("width", s);
+  svg.setAttribute("height", s);
+  svg.setAttribute("viewBox", `0 0 ${s} ${s}`);
+
+  // door leaf
+  const leaf = document.createElementNS("http://www.w3.org/2000/svg","line");
+  leaf.setAttribute("x1", hx);
+  leaf.setAttribute("y1", hy);
+  leaf.setAttribute("x2", hx);
+  leaf.setAttribute("y2", hy + r);
+  leaf.setAttribute("stroke", "#111827");
+  leaf.setAttribute("stroke-width", stroke);
+  leaf.setAttribute("stroke-linecap", "round");
+
+  // arc
+  const arc = document.createElementNS("http://www.w3.org/2000/svg","path");
+  arc.setAttribute("d", `M ${hx} ${hy} A ${r} ${r} 0 0 1 ${ex} ${ey}`);
+  arc.setAttribute("fill", "none");
+  arc.setAttribute("stroke", "rgba(17,24,39,0.65)");
+  arc.setAttribute("stroke-width", stroke);
+  arc.setAttribute("stroke-linecap", "round");
+
+  // hinge dot
+  const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  dot.setAttribute("cx", hx);
+  dot.setAttribute("cy", hy);
+  dot.setAttribute("r", 3.2);
+  dot.setAttribute("fill", "#111827");
+
+  svg.appendChild(arc);
+  svg.appendChild(leaf);
+  svg.appendChild(dot);
+
+  return svg;
+}
+
+function placeFixtureOnSegment(kind, seg) {
+  // Position: center at closest point on segment (snapped)
+  const cx = snapToGrid(seg.closest.x);
+  const cy = snapToGrid(seg.closest.y);
+
+  const rotation = seg.rotationDeg; // 0 for EW, 90 for NS
+
+  let wPx, hPx, wM, hM;
+
+  if (kind === "Door") {
+    // Door footprint 1×1 grid (but drawn as arc SVG)
+    wM = 1; hM = 1;
+    wPx = GRID; hPx = GRID;
+  } else {
+    // Window 2×0.5 grid
+    wM = 2; hM = 0.5;
+    wPx = 2 * GRID;
+    hPx = 0.5 * GRID;
+  }
 
   const id = (kind === "Door" ? "door_" : "window_") + (idCounter++);
 
@@ -826,53 +916,67 @@ function addFixture(kind){
   d.className = `fixture-shape ${kind === "Door" ? "fixture-door" : "fixture-window"}`;
   d.dataset.id = id;
   d.dataset.kind = kind;
-  d.textContent = kind; // or "D"/"W"
 
-  d.style.left = x + "px";
-  d.style.top = y + "px";
-  d.style.width = size + "px";
-  d.style.height = size + "px";
-  d.style.background = FIXTURE_COLORS[kind];
+  // size
+  d.style.width = wPx + "px";
+  d.style.height = hPx + "px";
+
+  // place by center
+  d.style.left = (cx - wPx/2) + "px";
+  d.style.top  = (cy - hPx/2) + "px";
+
+  // rotate to match wall direction
+  d.style.transform = `rotate(${rotation}deg)`;
+
+  if (kind === "Door") {
+    // For door, keep a square SVG inside. If the container is not square due to rotation,
+    // it's fine because door is 1×1 grid square.
+    d.style.width = GRID + "px";
+    d.style.height = GRID + "px";
+    d.style.left = (cx - GRID/2) + "px";
+    d.style.top  = (cy - GRID/2) + "px";
+    d.appendChild(createDoorSVG(GRID));
+  } else {
+    // Window: optional inner line to look like glazing
+    const inner = document.createElement("div");
+    inner.style.width = "100%";
+    inner.style.height = "100%";
+    inner.style.borderRadius = "6px";
+    inner.style.border = "1px solid rgba(0,0,0,0.18)";
+    inner.style.background = "rgba(59,130,246,0.10)";
+    d.appendChild(inner);
+  }
 
   canvas.appendChild(d);
 
   shapes.push({
     id,
     label: kind,
-    kind,              // "Door" | "Window"
-    x, y,
-    width: size,
-    height: size,
-    widthInMeters: 1,
-    heightInMeters: 1,
-    isFixture: true
+    kind,                       // "Door" | "Window" | "Room"
+    x: parseFloat(d.style.left),
+    y: parseFloat(d.style.top),
+    width: (kind === "Door" ? GRID : wPx),
+    height: (kind === "Door" ? GRID : hPx),
+    widthInMeters: wM,
+    heightInMeters: hM,
+    rotationDeg: rotation,
+    attachedTo: { wallIndex: seg.wallIndex, segIndex: seg.segIndex }
   });
 
   attachDrag(d);
-
   selectedId = null;
 }
 
-addDoorBtn.onclick = () => addFixture("Door");
-addWindowBtn.onclick = () => addFixture("Window");
-
-/* ---------- Delete key: rooms/fixtures OR selected wall ---------- */
+/* --------- Delete key --------- */
 document.onkeydown = e=>{
   if((e.key==="Delete"||e.key==="Backspace")){
-    // Check if a room/fixture is selected
     if(selectedId){
       const s=shapes.find(o=>o.id===selectedId);
       if(s?.isPerson) return;
-
-      // Remove from DOM (room or fixture)
       canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
-
-      // Remove from shapes
       shapes=shapes.filter(o=>o.id!==selectedId);
       selectedId=null;
-    }
-    // Check if a wall is selected
-    else if(selectedWallIndex !== null){
+    } else if(selectedWallIndex !== null){
       allWalls.splice(selectedWallIndex, 1);
       selectedWallIndex = null;
       redrawWalls();
@@ -883,57 +987,57 @@ document.onkeydown = e=>{
 clearBtn.onclick = () => {
   if (!confirm("Clear entire canvas?")) return;
 
-  // --- Clear rooms/fixtures ---
   shapes = shapes.filter(s => s.isPerson);
   document.querySelectorAll(".canvas-shape, .fixture-shape").forEach(e => e.remove());
   selectedId = null;
 
-  // --- Clear exteriors ---
   allWalls = [];
   currentWall = [];
   tempPoint = null;
   selectedWallIndex = null;
   redrawWalls();
 
-  // --- Reset drawing mode if active ---
+  placingFixtureKind = null;
+  addDoorBtn.classList.remove("active");
+  addWindowBtn.classList.remove("active");
+
   isDrawingWalls = false;
   drawWallBtn.textContent = 'Start Drawing';
   drawWallBtn.classList.remove('active');
   canvas.classList.remove('drawing-mode');
 };
 
+/* --------- Save --------- */
 saveBtn.onclick=async()=>{
   const notes=notesArea.value.trim();
   if(!notes) return alert("Write descriptions in the Text panel on the right.");
 
-  // Count words
   const wordCount = notes.split(/\s+/).filter(w=>w.length>0).length;
   if(wordCount < 150) {
     return alert(`Please write at least 150 words. Current word count: ${wordCount}`);
   }
 
-  // Check if exterior is drawn
   if(allWalls.length === 0) {
     return alert("Please draw the exterior of your house before saving.");
   }
 
-  // Create JSON data with coordinates in centimeters
   const layoutData = shapes
     .filter(s=>!s.isPerson)
     .map(s=>({
       id: s.id,
       label: s.label,
-      kind: s.kind || "Room", // Room | Door | Window
-      x: s.x/GRID*100,        // convert to cm (1 grid = 1m = 100cm)
-      y: s.y/GRID*100,
+      kind: s.kind || "Room",
+      x: (s.x/GRID)*100,
+      y: (s.y/GRID)*100,
       width: (s.widthInMeters ?? (s.width/GRID))*100,
-      height: (s.heightInMeters ?? (s.height/GRID))*100
+      height: (s.heightInMeters ?? (s.height/GRID))*100,
+      rotationDeg: s.rotationDeg ?? 0,
+      attachedTo: s.attachedTo ?? null
     }));
 
-  // Add exterior data
   const exteriorData = allWalls.map(wall =>
     wall.map(p => ({
-      x: p.x / GRID * 100, // convert to cm
+      x: p.x / GRID * 100,
       y: p.y / GRID * 100
     }))
   );
@@ -956,4 +1060,3 @@ function download(blob,name){
 </script>
 </body>
 </html>
-
