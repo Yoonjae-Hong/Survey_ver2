@@ -147,7 +147,8 @@ body {
 }
 
 .canvas.drawing-mode .person-icon,
-.canvas.drawing-mode .canvas-shape {
+.canvas.drawing-mode .canvas-shape,
+.canvas.drawing-mode .fixture-shape {
   pointer-events:none;
 }
 
@@ -218,6 +219,33 @@ body {
   box-shadow:0 0 0 2px #2563eb;
 }
 
+/* ---------- Door / Window (1 grid fixtures) ---------- */
+.fixture-shape{
+  position:absolute;
+  border:1px solid rgba(0,0,0,0.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  cursor:move;
+  user-select:none;
+  z-index:16;
+  pointer-events:auto;
+  border-radius:6px;
+}
+
+.fixture-shape.selected{
+  box-shadow:0 0 0 2px #2563eb;
+}
+
+.fixture-door{
+  background:rgba(34,197,94,0.35);
+}
+
+.fixture-window{
+  background:rgba(59,130,246,0.25);
+}
+
 /* ---------- RIGHT (Notes) ---------- */
 .notes-instruction {
   font-size:14px;
@@ -274,13 +302,19 @@ textarea {
   <input id="customHeight" type="number" min="1" step="1" value="3">
 
   <button id="addRoomBtn" class="btn btn-secondary">Add Room</button>
-  
+
   <hr style="margin:16px 0;">
-  
+
+  <h3>Add Door / Window</h3>
+  <button id="addDoorBtn" class="btn btn-secondary">Add Door (1 Grid)</button>
+  <button id="addWindowBtn" class="btn btn-secondary" style="margin-top:6px;">Add Window (1 Grid)</button>
+
+  <hr style="margin:16px 0;">
+
   <h3>Draw Outline</h3>
   <button id="drawWallBtn" class="btn btn-secondary">Start Drawing</button>
   <button id="clearWallsBtn" class="btn" style="margin-top:6px;">Clear Outline</button>
-  
+
   <hr style="margin:16px 0;">
 
   <button id="clearBtn" class="btn">Clear Canvas</button>
@@ -308,7 +342,8 @@ textarea {
       • Select <b>Start Drawing</b> to begin and select a corner of your floor plan.<br>
       • Moving around your floor plan, select each corner to create a border.<br>
       • To finish your outline, close your shape by ensuring that <b>the last point is the same as your first point.</b><br>
-      • To remove an outline, select it and press Delete</b> key.
+      • To remove an outline, select it and press <b>Delete</b> key.
+    </div>
   </li>
 
   <li>
@@ -371,6 +406,12 @@ const COLORS = {
   "Others":"rgba(156,163,175,0.4)"
 };
 
+// Door/Window colors
+const FIXTURE_COLORS = {
+  Door: "rgba(34,197,94,0.35)",
+  Window: "rgba(59,130,246,0.25)",
+};
+
 const canvas = document.getElementById("canvas");
 const person = document.getElementById("personIcon");
 const wallCanvas = document.getElementById("wallCanvas");
@@ -402,7 +443,7 @@ function resizeWallCanvas() {
 
 window.onload = () => {
   resizeWallCanvas();
-  
+
   const rect = canvas.getBoundingClientRect();
   // Person is 1.8m tall = 36px (1.8 * 20), width is 20px (1m)
   let x = rect.width/2 - 10;
@@ -421,28 +462,28 @@ window.addEventListener('resize', resizeWallCanvas);
 
 function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
-  
+
   // Draw all completed walls
   allWalls.forEach((wall, index) => {
     if (wall.length >= 2) {
       // Highlight selected wall
       const isSelected = selectedWallIndex === index;
-      
+
       wallCtx.strokeStyle = isSelected ? '#2563eb' : '#1f2937';
       wallCtx.lineWidth = isSelected ? 8 : 6;
       wallCtx.lineCap = 'round';
       wallCtx.lineJoin = 'round';
-      
+
       wallCtx.beginPath();
       wallCtx.moveTo(wall[0].x, wall[0].y);
-      
+
       for (let i = 1; i < wall.length; i++) {
         wallCtx.lineTo(wall[i].x, wall[i].y);
       }
-      
+
       wallCtx.stroke();
     }
-    
+
     // Draw points for completed walls
     wallCtx.fillStyle = selectedWallIndex === index ? '#2563eb' : '#ef4444';
     wall.forEach(p => {
@@ -451,24 +492,24 @@ function redrawWalls() {
       wallCtx.fill();
     });
   });
-  
+
   // Draw current wall being drawn
   if (currentWall.length >= 2) {
     wallCtx.strokeStyle = '#1f2937';
     wallCtx.lineWidth = 6;
     wallCtx.lineCap = 'round';
     wallCtx.lineJoin = 'round';
-    
+
     wallCtx.beginPath();
     wallCtx.moveTo(currentWall[0].x, currentWall[0].y);
-    
+
     for (let i = 1; i < currentWall.length; i++) {
       wallCtx.lineTo(currentWall[i].x, currentWall[i].y);
     }
-    
+
     wallCtx.stroke();
   }
-  
+
   // Draw points for current wall
   if (currentWall.length > 0) {
     wallCtx.fillStyle = '#ef4444';
@@ -478,7 +519,7 @@ function redrawWalls() {
       wallCtx.fill();
     });
   }
-  
+
   // Draw temporary line
   if (tempPoint && currentWall.length > 0) {
     wallCtx.strokeStyle = '#9ca3af';
@@ -506,7 +547,7 @@ function distanceToLineSegment(px, py, x1, y1, x2, y2) {
   const dot = A * C + B * D;
   const lenSq = C * C + D * D;
   let param = -1;
-  
+
   if (lenSq != 0) param = dot / lenSq;
 
   let xx, yy;
@@ -530,7 +571,7 @@ function distanceToLineSegment(px, py, x1, y1, x2, y2) {
 // Helper function to find which wall was clicked
 function findClickedWall(x, y) {
   const threshold = 15; // Click detection threshold in pixels
-  
+
   for (let i = 0; i < allWalls.length; i++) {
     const wall = allWalls[i];
     for (let j = 0; j < wall.length - 1; j++) {
@@ -546,14 +587,14 @@ function findClickedWall(x, y) {
 // Draw wall button
 drawWallBtn.onclick = () => {
   isDrawingWalls = !isDrawingWalls;
-  
+
   if (isDrawingWalls) {
     // Start new wall - deselect any selected wall
     currentWall = [];
     tempPoint = null;
     selectedWallIndex = null;
     redrawWalls();
-    
+
     drawWallBtn.textContent = 'Stop Drawing';
     drawWallBtn.classList.add('active');
     canvas.classList.add('drawing-mode');
@@ -563,7 +604,7 @@ drawWallBtn.onclick = () => {
       allWalls.push([...currentWall]);
     }
     currentWall = [];
-    
+
     drawWallBtn.textContent = 'Start Drawing';
     drawWallBtn.classList.remove('active');
     canvas.classList.remove('drawing-mode');
@@ -579,24 +620,24 @@ wallCanvas.addEventListener('mousedown', (e) => {
   const clickY = e.clientY - rect.top;
   const x = snapToGrid(clickX);
   const y = snapToGrid(clickY);
-  
+
   if (!isDrawingWalls) {
     // Not drawing mode - check if clicking on a wall to select it
     const clickedWallIndex = findClickedWall(clickX, clickY);
-    
+
     if (clickedWallIndex !== null) {
-      // Deselect rooms
-      const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+      // Deselect rooms/fixtures/person
+      const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if(oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
-      
+
       // Select wall
       selectedWallIndex = clickedWallIndex;
       redrawWalls();
       e.stopPropagation();
     } else {
       // Clicked on empty space - deselect everything
-      const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+      const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if(oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
       selectedWallIndex = null;
@@ -604,21 +645,21 @@ wallCanvas.addEventListener('mousedown', (e) => {
     }
     return;
   }
-  
+
   // Drawing mode - add point to current wall
   // Check if clicked on the first point (to close the shape)
   if (currentWall.length > 2) {
     const firstPoint = currentWall[0];
     const distance = Math.sqrt(Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2));
-    
+
     if (distance < GRID) {
       // Close the shape by connecting to first point
       currentWall.push({ x: firstPoint.x, y: firstPoint.y });
-      
+
       // Save the completed wall
       allWalls.push([...currentWall]);
       currentWall = [];
-      
+
       // Finish drawing
       isDrawingWalls = false;
       drawWallBtn.textContent = 'Start Drawing';
@@ -629,7 +670,7 @@ wallCanvas.addEventListener('mousedown', (e) => {
       return;
     }
   }
-  
+
   currentWall.push({ x, y });
   redrawWalls();
 });
@@ -637,13 +678,13 @@ wallCanvas.addEventListener('mousedown', (e) => {
 wallCanvas.ondblclick = (e) => {
   if (!isDrawingWalls) return;
   e.preventDefault();
-  
+
   // Save the completed wall
   if (currentWall.length > 0) {
     allWalls.push([...currentWall]);
   }
   currentWall = [];
-  
+
   // Finish drawing
   isDrawingWalls = false;
   drawWallBtn.textContent = 'Start Drawing';
@@ -655,7 +696,7 @@ wallCanvas.ondblclick = (e) => {
 
 wallCanvas.onmousemove = (e) => {
   if (!isDrawingWalls || currentWall.length === 0) return;
-  
+
   const rect = wallCanvas.getBoundingClientRect();
   tempPoint = {
     x: snapToGrid(e.clientX - rect.left),
@@ -673,23 +714,24 @@ clearWallsBtn.onclick = () => {
   redrawWalls();
 };
 
+/* ---------- Drag + Selection ---------- */
 function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Select the element when clicked
-    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+    const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
-    
-    // Deselect wall when selecting a room
+
+    // Deselect wall when selecting a room/fixture/person
     selectedWallIndex = null;
     redrawWalls();
-    
+
     selectedId = el.dataset?.id || "person";
     el.classList.add('selected');
-    
+
     const sx=e.clientX, sy=e.clientY;
     const ix=parseFloat(el.style.left), iy=parseFloat(el.style.top);
 
@@ -714,14 +756,17 @@ function attachDrag(el){
 
 // Deselect when clicking on canvas background or other areas
 document.addEventListener('mousedown', (e) => {
-  const isRoom = e.target.classList.contains('canvas-shape');
+  const isRoomOrFixture =
+    e.target.classList.contains('canvas-shape') ||
+    e.target.classList.contains('fixture-shape');
+
   const isPerson = e.target.id === 'personIcon';
   const isWallCanvas = e.target.id === 'wallCanvas';
   const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON';
-  
-  // If clicked on something that's not a room, person, wall canvas, or input field
-  if (!isRoom && !isPerson && !isWallCanvas && !isInput) {
-    const oldSelected = canvas.querySelector('.canvas-shape.selected, .person-icon.selected');
+
+  // If clicked on something that's not a room/fixture, person, wall canvas, or input field
+  if (!isRoomOrFixture && !isPerson && !isWallCanvas && !isInput) {
+    const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
     if(oldSelected) oldSelected.classList.remove('selected');
     selectedId = null;
     selectedWallIndex = null;
@@ -729,6 +774,7 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
+/* ---------- Add Room ---------- */
 addRoomBtn.onclick = () => {
   const type = customRoomType.value;
   const widthInMeters = Math.floor(+customWidth.value); // Integer only
@@ -760,18 +806,68 @@ addRoomBtn.onclick = () => {
   canvas.appendChild(d);
   shapes.push({id,label,x,y,width:w,height:h,widthInMeters,heightInMeters});
   attachDrag(d);
-  
+
   // Don't auto-select the newly created room
   selectedId = null;
 };
 
+/* ---------- Add Door / Window (1 Grid) ---------- */
+function addFixture(kind){
+  if (isDrawingWalls) return;
+
+  const size = GRID; // 1 grid
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round((rect.width/2 - size/2)/GRID)*GRID;
+  const y = Math.round((rect.height/2 - size/2)/GRID)*GRID;
+
+  const id = (kind === "Door" ? "door_" : "window_") + (idCounter++);
+
+  const d = document.createElement("div");
+  d.className = `fixture-shape ${kind === "Door" ? "fixture-door" : "fixture-window"}`;
+  d.dataset.id = id;
+  d.dataset.kind = kind;
+  d.textContent = kind; // or "D"/"W"
+
+  d.style.left = x + "px";
+  d.style.top = y + "px";
+  d.style.width = size + "px";
+  d.style.height = size + "px";
+  d.style.background = FIXTURE_COLORS[kind];
+
+  canvas.appendChild(d);
+
+  shapes.push({
+    id,
+    label: kind,
+    kind,              // "Door" | "Window"
+    x, y,
+    width: size,
+    height: size,
+    widthInMeters: 1,
+    heightInMeters: 1,
+    isFixture: true
+  });
+
+  attachDrag(d);
+
+  selectedId = null;
+}
+
+addDoorBtn.onclick = () => addFixture("Door");
+addWindowBtn.onclick = () => addFixture("Window");
+
+/* ---------- Delete key: rooms/fixtures OR selected wall ---------- */
 document.onkeydown = e=>{
   if((e.key==="Delete"||e.key==="Backspace")){
-    // Check if a room is selected
+    // Check if a room/fixture is selected
     if(selectedId){
       const s=shapes.find(o=>o.id===selectedId);
       if(s?.isPerson) return;
+
+      // Remove from DOM (room or fixture)
       canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
+
+      // Remove from shapes
       shapes=shapes.filter(o=>o.id!==selectedId);
       selectedId=null;
     }
@@ -787,9 +883,9 @@ document.onkeydown = e=>{
 clearBtn.onclick = () => {
   if (!confirm("Clear entire canvas?")) return;
 
-  // --- Clear rooms ---
+  // --- Clear rooms/fixtures ---
   shapes = shapes.filter(s => s.isPerson);
-  document.querySelectorAll(".canvas-shape").forEach(e => e.remove());
+  document.querySelectorAll(".canvas-shape, .fixture-shape").forEach(e => e.remove());
   selectedId = null;
 
   // --- Clear exteriors ---
@@ -822,17 +918,20 @@ saveBtn.onclick=async()=>{
   }
 
   // Create JSON data with coordinates in centimeters
-  const layoutData = shapes.filter(s=>!s.isPerson).map(s=>({
-    id:s.id,
-    label:s.label,
-    x:s.x/GRID*100, // convert to cm (1 grid = 1m = 100cm)
-    y:s.y/GRID*100,
-    width:s.widthInMeters*100,
-    height:s.heightInMeters*100
-  }));
+  const layoutData = shapes
+    .filter(s=>!s.isPerson)
+    .map(s=>({
+      id: s.id,
+      label: s.label,
+      kind: s.kind || "Room", // Room | Door | Window
+      x: s.x/GRID*100,        // convert to cm (1 grid = 1m = 100cm)
+      y: s.y/GRID*100,
+      width: (s.widthInMeters ?? (s.width/GRID))*100,
+      height: (s.heightInMeters ?? (s.height/GRID))*100
+    }));
 
   // Add exterior data
-  const exteriorData = allWalls.map(wall => 
+  const exteriorData = allWalls.map(wall =>
     wall.map(p => ({
       x: p.x / GRID * 100, // convert to cm
       y: p.y / GRID * 100
@@ -857,3 +956,4 @@ function download(blob,name){
 </script>
 </body>
 </html>
+
