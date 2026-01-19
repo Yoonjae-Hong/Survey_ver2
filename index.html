@@ -487,36 +487,72 @@ clearWallsBtn.onclick = () => {
 };
 
 wallCanvas.addEventListener('mousedown', (e) => {
-  // if drawing, handle outline creation
-  if (!isDrawingWalls) return;
-
   const rect = wallCanvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
 
-  const x = snapToGrid(clickX);
-  const y = snapToGrid(clickY);
+  // if drawing mode, handle outline creation
+  if (isDrawingWalls) {
+    const x = snapToGrid(clickX);
+    const y = snapToGrid(clickY);
 
-  if (currentWall.length > 2) {
-    const firstPoint = currentWall[0];
-    const distance = Math.sqrt((x-firstPoint.x)**2 + (y-firstPoint.y)**2);
-    if (distance < GRID) {
-      currentWall.push({ x: firstPoint.x, y: firstPoint.y });
-      allWalls.push([...currentWall]);
-      currentWall = [];
+    if (currentWall.length > 2) {
+      const firstPoint = currentWall[0];
+      const distance = Math.sqrt((x-firstPoint.x)**2 + (y-firstPoint.y)**2);
+      if (distance < GRID) {
+        currentWall.push({ x: firstPoint.x, y: firstPoint.y });
+        allWalls.push([...currentWall]);
+        currentWall = [];
 
-      isDrawingWalls = false;
-      drawWallBtn.textContent = 'Start Drawing';
-      drawWallBtn.classList.remove('active');
-      canvas.classList.remove('drawing-mode');
-      tempPoint = null;
-      redrawWalls();
-      return;
+        isDrawingWalls = false;
+        drawWallBtn.textContent = 'Start Drawing';
+        drawWallBtn.classList.remove('active');
+        canvas.classList.remove('drawing-mode');
+        tempPoint = null;
+        redrawWalls();
+        return;
+      }
     }
+
+    currentWall.push({ x, y });
+    redrawWalls();
+    return;
   }
 
-  currentWall.push({ x, y });
-  redrawWalls();
+  // if NOT drawing mode, check if clicking on an existing wall to select it
+  if (!placingFixtureKind) {
+    const WALL_SELECT_THRESHOLD = 15;
+    let foundWallIndex = null;
+
+    for (let i = 0; i < allWalls.length; i++) {
+      const wall = allWalls[i];
+      if (wall.length < 2) continue;
+
+      // check distance to each segment
+      for (let j = 0; j < wall.length - 1; j++) {
+        const p1 = wall[j];
+        const p2 = wall[j + 1];
+        const res = distanceToSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
+        if (res.dist <= WALL_SELECT_THRESHOLD) {
+          foundWallIndex = i;
+          break;
+        }
+      }
+      if (foundWallIndex !== null) break;
+    }
+
+    if (foundWallIndex !== null) {
+      e.stopPropagation();
+      // deselect shapes
+      const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
+      if (oldSelected) oldSelected.classList.remove('selected');
+      selectedId = null;
+
+      // select wall
+      selectedWallIndex = foundWallIndex;
+      redrawWalls();
+    }
+  }
 });
 
 wallCanvas.onmousemove = (e) => {
