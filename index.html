@@ -5,11 +5,7 @@
 <title>Floorplan Design Tool</title>
 
 <style>
-* {
-  box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
+* { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 body { margin:0; background:#f5f5f7; }
 .app-container { display:flex; flex-direction:column; height:100vh; }
 
@@ -325,8 +321,10 @@ let isDrawingWalls = false;
 let allWalls = [];
 let currentWall = [];
 let tempPoint = null;
+
+// ✅ segment selection
 let selectedWallIndex = null;
-let selectedSegmentIndex = null; // ✅ select only one segment
+let selectedSegmentIndex = null; // selects segment [j, j+1]
 
 /* Fixture placing mode */
 let placingFixtureKind = null; // "Door" | "Window" | null
@@ -376,6 +374,7 @@ function deselectAll() {
   redrawWalls();
 }
 
+// deselect when clicking outside shapes/person (including UI)
 document.addEventListener('mousedown', (e) => {
   const isShape =
     e.target.classList.contains('canvas-shape') ||
@@ -414,61 +413,56 @@ function distanceToSegment(px, py, x1, y1, x2, y2) {
 }
 
 /* =========================
-   Outline drawing + redraw
+   Outline redraw (segment-only highlight)
 ========================= */
 function redrawWalls() {
   wallCtx.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
 
   // Completed walls
   allWalls.forEach((wall, index) => {
-    if (wall.length >= 2) {
-      // base (always black)
-      wallCtx.strokeStyle = '#1f2937';
-      wallCtx.lineWidth = 6;
-      wallCtx.lineCap = 'round';
-      wallCtx.lineJoin = 'round';
+    if (!wall || wall.length < 2) return;
 
-      wallCtx.beginPath();
-      wallCtx.moveTo(wall[0].x, wall[0].y);
-      for (let i = 1; i < wall.length; i++) wallCtx.lineTo(wall[i].x, wall[i].y);
-      wallCtx.stroke();
+    // base polyline (always black)
+    wallCtx.strokeStyle = '#1f2937';
+    wallCtx.lineWidth = 6;
+    wallCtx.lineCap = 'round';
+    wallCtx.lineJoin = 'round';
 
-      // selected segment (blue overlay)
-      if (selectedWallIndex === index && selectedSegmentIndex !== null) {
-        const p1 = wall[selectedSegmentIndex];
-        const p2 = wall[selectedSegmentIndex + 1];
-        if (p1 && p2) {
-          wallCtx.strokeStyle = '#2563eb';
-          wallCtx.lineWidth = 8;
-          wallCtx.beginPath();
-          wallCtx.moveTo(p1.x, p1.y);
-          wallCtx.lineTo(p2.x, p2.y);
-          wallCtx.stroke();
-        }
-      }
+    wallCtx.beginPath();
+    wallCtx.moveTo(wall[0].x, wall[0].y);
+    for (let i = 1; i < wall.length; i++) wallCtx.lineTo(wall[i].x, wall[i].y);
+    wallCtx.stroke();
 
-      // points
-      const isWallSelected = (selectedWallIndex === index);
-      wallCtx.fillStyle = '#ef4444';
-      wall.forEach(p => {
+    // selected segment overlay (blue)
+    if (selectedWallIndex === index && selectedSegmentIndex !== null) {
+      const p1 = wall[selectedSegmentIndex];
+      const p2 = wall[selectedSegmentIndex + 1];
+      if (p1 && p2) {
+        wallCtx.strokeStyle = '#2563eb';
+        wallCtx.lineWidth = 8;
         wallCtx.beginPath();
-        wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        wallCtx.fill();
-      });
+        wallCtx.moveTo(p1.x, p1.y);
+        wallCtx.lineTo(p2.x, p2.y);
+        wallCtx.stroke();
 
-// ✅ 선택된 세그먼트의 "두 끝점"만 파랑으로 표시
-if (selectedWallIndex === index && selectedSegmentIndex !== null) {
-  const pA = wall[selectedSegmentIndex];
-  const pB = wall[selectedSegmentIndex + 1];
-  if (pA && pB) {
-    wallCtx.fillStyle = '#2563eb';
-    [pA, pB].forEach(p => {
+        // points: only the two endpoints are blue
+        wallCtx.fillStyle = '#2563eb';
+        [p1, p2].forEach(p => {
+          wallCtx.beginPath();
+          wallCtx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+          wallCtx.fill();
+        });
+      }
+    }
+
+    // all other points are red
+    wallCtx.fillStyle = '#ef4444';
+    wall.forEach(p => {
       wallCtx.beginPath();
-      wallCtx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       wallCtx.fill();
     });
-  }
-}
+  });
 
   // Current wall being drawn
   if (currentWall.length >= 2) {
@@ -504,6 +498,9 @@ if (selectedWallIndex === index && selectedSegmentIndex !== null) {
   }
 }
 
+/* =========================
+   Outline drawing handlers
+========================= */
 drawWallBtn.onclick = () => {
   placingFixtureKind = null;
   addDoorBtn.classList.remove("active");
@@ -576,7 +573,7 @@ wallCanvas.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // not drawing mode: select ONE segment
+  // not drawing mode: select ONE segment (no "whole wall" selection)
   if (!placingFixtureKind) {
     let foundWallIndex = null;
     let foundSegmentIndex = null;
@@ -610,7 +607,6 @@ wallCanvas.addEventListener('mousedown', (e) => {
       selectedSegmentIndex = foundSegmentIndex;
       redrawWalls();
     } else {
-      // click empty -> deselect outline
       selectedWallIndex = null;
       selectedSegmentIndex = null;
       redrawWalls();
@@ -752,7 +748,6 @@ function placeFixtureOnRoomEdge(kind, edgeHit) {
 
   if (kind === "Door") {
     const wPx = GRID, hPx = GRID;
-
     d.style.width = wPx + "px";
     d.style.height = hPx + "px";
     d.style.left = (cx - wPx/2) + "px";
@@ -801,6 +796,7 @@ function attachDrag(el){
   el.onmousedown = e=>{
     if (isDrawingWalls) return;
     if (placingFixtureKind) return;
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -915,6 +911,7 @@ addWindowBtn.onclick = () => {
   if (placingFixtureKind !== "Window") placingFixtureKind = null;
 };
 
+// Place fixtures by clicking on ROOM EDGE
 canvas.addEventListener("mousedown", (e) => {
   if (isDrawingWalls) return;
   if (!placingFixtureKind) return;
@@ -939,41 +936,44 @@ canvas.addEventListener("mousedown", (e) => {
 /* =========================
    Delete / Clear / Save
 ========================= */
-document.onkeydown = e=>{
-  if(e.key==="Delete"||e.key==="Backspace"){
-    // delete selected shape
-    if(selectedId){
-      const s=shapes.find(o=>o.id===selectedId);
-      if(s?.isPerson) return;
-      canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
-      shapes = shapes.filter(o=>o.id!==selectedId);
-      selectedId=null;
-      return;
+document.onkeydown = (e) => {
+  if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+  // delete selected shape
+  if (selectedId) {
+    const s = shapes.find(o => o.id === selectedId);
+    if (s?.isPerson) return;
+    canvas.querySelector(`[data-id="${selectedId}"]`)?.remove();
+    shapes = shapes.filter(o => o.id !== selectedId);
+    selectedId = null;
+    return;
+  }
+
+  // ✅ delete selected outline SEGMENT only (split polyline into 2)
+  if (selectedWallIndex !== null && selectedSegmentIndex !== null) {
+    const wall = allWalls[selectedWallIndex];
+    const j = selectedSegmentIndex;
+
+    if (wall && wall[j] && wall[j+1]) {
+      // remove only the segment between j and j+1:
+      // keep left part up to j, and right part from j+1
+      const left = wall.slice(0, j + 1);
+      const right = wall.slice(j + 1);
+
+      // remove original wall
+      allWalls.splice(selectedWallIndex, 1);
+
+      // add remaining pieces back (each must have >=2 points)
+      if (left.length >= 2) allWalls.push(left);
+      if (right.length >= 2) allWalls.push(right);
+
+      selectedWallIndex = null;
+      selectedSegmentIndex = null;
+      redrawWalls();
     }
-
-    // ✅ delete selected outline SEGMENT only (split polyline into 2)
-    if (selectedWallIndex !== null && selectedSegmentIndex !== null) {
-      const wall = allWalls[selectedWallIndex];
-      const j = selectedSegmentIndex;
-
-      if (wall && wall[j] && wall[j+1]) {
-        const left = wall.slice(0, j + 1);    // ... up to point j
-        const right = wall.slice(j + 1);      // from point j+1 ...
-
-        // 기존 wall 제거
-        allWalls.splice(selectedWallIndex, 1);
-
-        // 남는 조각들 다시 넣기 (점이 2개 이상이어야 선이 됨)
-        if (left.length >= 2) allWalls.push(left);
-        if (right.length >= 2) allWalls.push(right);
-
-        selectedWallIndex = null;
-        selectedSegmentIndex = null;
-        redrawWalls();
-      }
-      return;
-    }
-
+    return;
+  }
+};
 
 clearBtn.onclick = () => {
   if (!confirm("Clear entire canvas?")) return;
@@ -999,8 +999,8 @@ clearBtn.onclick = () => {
   canvas.classList.remove('drawing-mode');
 };
 
-saveBtn.onclick=async()=>{
-  const notes=notesArea.value.trim();
+saveBtn.onclick = async () => {
+  const notes = notesArea.value.trim();
   if(!notes) return alert("Write descriptions in the Text panel on the right.");
 
   const wordCount = notes.split(/\s+/).filter(w=>w.length>0).length;
@@ -1027,11 +1027,11 @@ saveBtn.onclick=async()=>{
     wall.map(p => ({ x: p.x/GRID*100, y: p.y/GRID*100 }))
   );
 
-  const data={ layout:layoutData, exterior:exteriorData, notes };
+  const data = { layout: layoutData, exterior: exteriorData, notes };
   download(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"layout.json");
   download(new Blob(["\uFEFF"+notes],{type:"text/plain"}),"notes.txt");
 
-  const shot=await html2canvas(canvas,{scale:2});
+  const shot = await html2canvas(canvas,{scale:2});
   shot.toBlob(b=>download(b,"layout.png"));
   alert("Saved!");
 };
@@ -1045,8 +1045,3 @@ function download(blob,name){
 </script>
 </body>
 </html>
-
-
-
-
-
