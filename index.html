@@ -314,7 +314,10 @@ const wallCtx = wallCanvas.getContext("2d");
 
 let shapes = [];
 let selectedId = null;
-let idCounter = 1;
+let roomCounter = 1;
+let doorCounter = 1;
+let windowCounter = 1;
+
 
 /* Outline (optional) */
 let isDrawingWalls = false;
@@ -739,7 +742,11 @@ function placeFixtureOnRoomEdge(kind, edgeHit) {
   const cy = baseCy - edgeHit.outward.y * OFFSET_PX;
 
   const angleDeg = edgeHit.angleDeg;
-  const id = (kind === "Door" ? "door_" : "window_") + (idCounter++);
+  const id =
+  (kind === "Door")
+    ? ("door_" + (doorCounter++))
+    : ("window_" + (windowCounter++));
+
 
   const d = document.createElement("div");
   d.className = `fixture-shape ${kind === "Window" ? "fixture-window" : ""}`;
@@ -864,7 +871,7 @@ addRoomBtn.onclick = () => {
   const x = Math.round((rect.width/2 - w/2)/GRID)*GRID;
   const y = Math.round((rect.height/2 - h/2)/GRID)*GRID;
 
-  const id = "shape_"+idCounter++;
+  const id = "shape_" + (roomCounter++);
   const d = document.createElement("div");
   d.className="canvas-shape";
   d.dataset.id=id;
@@ -997,6 +1004,10 @@ clearBtn.onclick = () => {
   drawWallBtn.textContent = 'Start Drawing';
   drawWallBtn.classList.remove('active');
   canvas.classList.remove('drawing-mode');
+
+  roomCounter = 1;
+  doorCounter = 1;
+  windowCounter = 1;
 };
 
 saveBtn.onclick = async () => {
