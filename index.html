@@ -519,10 +519,12 @@ wallCanvas.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // if NOT drawing mode, check if clicking on an existing wall to select it
+  // if NOT drawing mode, check if clicking on an existing wall segment to select it
   if (!placingFixtureKind) {
     const WALL_SELECT_THRESHOLD = 15;
     let foundWallIndex = null;
+    let foundSegmentIndex = null;
+    let minDist = Infinity;
 
     for (let i = 0; i < allWalls.length; i++) {
       const wall = allWalls[i];
@@ -533,23 +535,24 @@ wallCanvas.addEventListener('mousedown', (e) => {
         const p1 = wall[j];
         const p2 = wall[j + 1];
         const res = distanceToSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
-        if (res.dist <= WALL_SELECT_THRESHOLD) {
+        if (res.dist <= WALL_SELECT_THRESHOLD && res.dist < minDist) {
           foundWallIndex = i;
-          break;
+          foundSegmentIndex = j;
+          minDist = res.dist;
         }
       }
-      if (foundWallIndex !== null) break;
     }
 
-    if (foundWallIndex !== null) {
+    if (foundWallIndex !== null && foundSegmentIndex !== null) {
       e.stopPropagation();
       // deselect shapes
       const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if (oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
 
-      // select wall
+      // select wall segment
       selectedWallIndex = foundWallIndex;
+      selectedSegmentIndex = foundSegmentIndex;
       redrawWalls();
     }
   }
