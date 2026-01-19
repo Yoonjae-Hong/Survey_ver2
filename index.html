@@ -232,7 +232,7 @@ textarea{
 
   <h3>Draw Boundary</h3>
   <button id="drawWallBtn" class="btn btn-secondary">Start Drawing</button>
-  <button id="clearWallsBtn" class="btn" style="margin-top:6px;">Clear Outline</button>
+  <button id="clearWallsBtn" class="btn" style="margin-top:6px;">Clear Boundary</button>
 
   <hr style="margin:16px 0;">
 
@@ -249,7 +249,7 @@ textarea{
         <b>[Step 1]</b> <b>Add</b> rooms and <b>drag</b> them.
         <div style="color:#666;">
           • The human icon represents a height of 180 cm.<br>
-          • To remove a room/fixture/outline-segment, select it and press <b>Delete</b>.
+          • To remove a room/door/window/boundary, select it and press <b>Delete</b>.
         </div>
       </li>
       <li><b>[Step 2]</b> Add doors/windows by clicking <b>on a room edge</b>.</li>
@@ -535,7 +535,7 @@ drawWallBtn.onclick = () => {
 };
 
 clearWallsBtn.onclick = () => {
-  if (!confirm("Clear all outlines?")) return;
+  if (!confirm("Clear all boundaries?")) return;
   allWalls = [];
   currentWall = [];
   tempPoint = null;
