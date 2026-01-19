@@ -449,14 +449,26 @@ function redrawWalls() {
 
       // points
       const isWallSelected = (selectedWallIndex === index);
-      wallCtx.fillStyle = isWallSelected ? '#2563eb' : '#ef4444';
+      wallCtx.fillStyle = '#ef4444';
       wall.forEach(p => {
         wallCtx.beginPath();
-        wallCtx.arc(p.x, p.y, isWallSelected ? 5 : 4, 0, Math.PI * 2);
+        wallCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
         wallCtx.fill();
       });
-    }
-  });
+
+// ✅ 선택된 세그먼트의 "두 끝점"만 파랑으로 표시
+if (selectedWallIndex === index && selectedSegmentIndex !== null) {
+  const pA = wall[selectedSegmentIndex];
+  const pB = wall[selectedSegmentIndex + 1];
+  if (pA && pB) {
+    wallCtx.fillStyle = '#2563eb';
+    [pA, pB].forEach(p => {
+      wallCtx.beginPath();
+      wallCtx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      wallCtx.fill();
+    });
+  }
+}
 
   // Current wall being drawn
   if (currentWall.length >= 2) {
@@ -939,26 +951,29 @@ document.onkeydown = e=>{
       return;
     }
 
-    // ✅ delete selected outline SEGMENT only
-    if(selectedWallIndex !== null && selectedSegmentIndex !== null){
+    // ✅ delete selected outline SEGMENT only (split polyline into 2)
+    if (selectedWallIndex !== null && selectedSegmentIndex !== null) {
       const wall = allWalls[selectedWallIndex];
-      if (wall && wall.length >= 2) {
-        // Remove the endpoint of the segment (point at j+1)
-        wall.splice(selectedSegmentIndex + 1, 1);
+      const j = selectedSegmentIndex;
 
-        // If wall becomes invalid, remove it
-        if (wall.length < 2) {
-          allWalls.splice(selectedWallIndex, 1);
-        }
+      if (wall && wall[j] && wall[j+1]) {
+        const left = wall.slice(0, j + 1);    // ... up to point j
+        const right = wall.slice(j + 1);      // from point j+1 ...
 
-        // clear selection after deletion
+        // 기존 wall 제거
+        allWalls.splice(selectedWallIndex, 1);
+
+        // 남는 조각들 다시 넣기 (점이 2개 이상이어야 선이 됨)
+        if (left.length >= 2) allWalls.push(left);
+        if (right.length >= 2) allWalls.push(right);
+
         selectedWallIndex = null;
         selectedSegmentIndex = null;
         redrawWalls();
       }
+      return;
     }
-  }
-};
+
 
 clearBtn.onclick = () => {
   if (!confirm("Clear entire canvas?")) return;
