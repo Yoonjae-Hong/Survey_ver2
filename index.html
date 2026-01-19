@@ -544,7 +544,7 @@ wallCanvas.addEventListener('mousedown', (e) => {
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
 
-  // drawing mode: add points
+  // if drawing mode, handle outline creation
   if (isDrawingWalls) {
     const x = snapToGrid(clickX);
     const y = snapToGrid(clickY);
@@ -572,21 +572,23 @@ wallCanvas.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // not drawing mode: select ONE segment (no "whole wall" selection)
+  // if NOT drawing mode, check if clicking on an existing wall segment to select it
   if (!placingFixtureKind) {
+    const WALL_SELECT_THRESHOLD = 15;
     let foundWallIndex = null;
     let foundSegmentIndex = null;
     let minDist = Infinity;
 
     for (let i = 0; i < allWalls.length; i++) {
       const wall = allWalls[i];
-      if (!wall || wall.length < 2) continue;
+      if (wall.length < 2) continue;
 
+      // check distance to each segment
       for (let j = 0; j < wall.length - 1; j++) {
         const p1 = wall[j];
         const p2 = wall[j + 1];
         const res = distanceToSegment(clickX, clickY, p1.x, p1.y, p2.x, p2.y);
-        if (res.dist <= OUTLINE_SELECT_THRESHOLD_PX && res.dist < minDist) {
+        if (res.dist <= WALL_SELECT_THRESHOLD && res.dist < minDist) {
           foundWallIndex = i;
           foundSegmentIndex = j;
           minDist = res.dist;
@@ -596,18 +598,14 @@ wallCanvas.addEventListener('mousedown', (e) => {
 
     if (foundWallIndex !== null && foundSegmentIndex !== null) {
       e.stopPropagation();
-
       // deselect shapes
       const oldSelected = canvas.querySelector('.canvas-shape.selected, .fixture-shape.selected, .person-icon.selected');
       if (oldSelected) oldSelected.classList.remove('selected');
       selectedId = null;
 
+      // select wall segment
       selectedWallIndex = foundWallIndex;
       selectedSegmentIndex = foundSegmentIndex;
-      redrawWalls();
-    } else {
-      selectedWallIndex = null;
-      selectedSegmentIndex = null;
       redrawWalls();
     }
   }
