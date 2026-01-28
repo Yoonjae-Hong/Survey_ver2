@@ -196,8 +196,8 @@ textarea{
     <option>Master Bedroom</option>
     <option>Bedroom</option>
     <option>Bathroom</option>
-    <option>Storage</option>
-    <option value="Others">Others</option>
+    <option>Storeroom</option>
+    <option>Porch/Terrace</option>
   </select>
 
   <div id="labelContainer" style="display:none;">
@@ -303,7 +303,7 @@ const COLORS = {
   "Bedroom":"rgba(96,165,250,0.4)",
   "Bathroom":"rgba(167,139,250,0.4)",
   "Storage":"rgba(244,114,182,0.4)",
-  "Others":"rgba(156,163,175,0.4)"
+  "Porch/Terrace":"rgba(156,163,175,0.4)"
 };
 
 const canvas = document.getElementById("canvas");
@@ -324,9 +324,9 @@ let tempPoint = null;
 let selectedWallIndex = null;
 let selectedSegmentIndex = null;
 
-customRoomType.onchange = () => {
-  labelContainer.style.display = customRoomType.value === "Others" ? "block" : "none";
-};
+// customRoomType.onchange = () => {
+//   labelContainer.style.display = customRoomType.value === "Others" ? "block" : "none";
+// };
 
 function snapToGrid(val) { return Math.round(val / GRID) * GRID; }
 
@@ -800,11 +800,11 @@ addRoomBtn.onclick = () => {
   const w = widthInMeters * GRID;
   const h = heightInMeters * GRID;
 
-  let label = type;
-  if(type==="Others"){
-    label = customLabelInput.value.trim();
-    if(!label) return alert("Enter label");
-  }
+  // let label = type;
+  // if(type==="Others"){
+  //   label = customLabelInput.value.trim();
+  //   if(!label) return alert("Enter label");
+  // }
 
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((rect.width/2 - w/2)/GRID)*GRID;
