@@ -800,11 +800,11 @@ addRoomBtn.onclick = () => {
   const w = widthInMeters * GRID;
   const h = heightInMeters * GRID;
 
-  // let label = type;
-  // if(type==="Others"){
-  //   label = customLabelInput.value.trim();
-  //   if(!label) return alert("Enter label");
-  // }
+  let label = type;
+  if(type==="Others"){
+    label = customLabelInput.value.trim();
+    if(!label) return alert("Enter label");
+  }
 
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((rect.width/2 - w/2)/GRID)*GRID;
